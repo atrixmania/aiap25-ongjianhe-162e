@@ -101,63 +101,46 @@ aiap24-ongjianhe-162E/
 
 **Flowchart TD**
 ```mermaid
-graph TD
-     A[app.py]
+    A[app py]
 
-    %% =========================
-    %% TRAINING CHECK
-    %% =========================
+    A --> B{Training required}
 
-    A --> TC{Training required?}
+    B -->|YES| C[data loader]
+    B -->|NO| D[Load saved artifacts]
 
-    TC -->|YES| D[data_loader.py]
-    TC -->|NO| L[Load Saved Artifacts]
+    C --> E[Data processor fit transform]
+    E --> F[Feature engineer fit transform]
+    F --> G[Service model train]
 
-    D --> P[DataProcessor<br/>fit_transform()]
-    P --> F[FeatureEngineer<br/>fit_transform()]
-    F --> M[ServiceModel<br/>train()]
+    G --> H[Save service model]
+    E --> I[Save preprocess model]
+    F --> J[Save feature model]
 
-    M --> SA[Save service_model.pkl]
-    P --> SP[Save preprocess_model.pkl]
-    F --> SF[Save feature_model.pkl]
+    H --> K[Saved ML artifacts]
+    I --> K
+    J --> K
 
-    SA --> ART[(Saved ML Artifacts)]
-    SP --> ART
-    SF --> ART
+    D --> K
 
-    L --> ART
+    A --> L{Prediction DB available}
 
-    %% =========================
-    %% PREDICTION CHECK
-    %% =========================
+    L -->|YES| M[Load prediction data]
+    L -->|NO| N[Start Dash]
 
-    A --> PC{Prediction DB available?}
+    M --> O[Data processor transform]
+    O --> P[Feature engineer transform]
+    P --> Q[Service model predict]
+    Q --> R[Prediction results]
 
-    PC -->|YES| PD[data_loader.py<br/>load_prediction_data()]
-    PC -->|NO| DASH[Start Dash]
+    K --> S[EDA page]
+    K --> T[Predict page]
 
-    PD --> PT[DataProcessor<br/>transform()]
-    PT --> FT[FeatureEngineer<br/>transform()]
-    FT --> MP[ServiceModel<br/>predict()]
-    MP --> PR[(Prediction Results)]
+    R --> T
 
-    %% =========================
-    %% PRESENTATION
-    %% =========================
+    S --> N
+    T --> N
 
-    ART --> E[eda_page.py]
-    ART --> R[predict_page.py]
-
-    PR --> R
-
-    E --> DASH
-    R --> DASH
-
-    %% =========================
-    %% DASH
-    %% =========================
-
-    DASH --> UI[Dash Application<br/>/eda and /predict]
+    N --> U[Dash application]
 ```
 
 ## 
@@ -183,6 +166,8 @@ graph TD
 **Pipeline TD**
 ```mermaid
 graph TD
+graph TD
+
     A["app.py"]
 
     %% =========================
@@ -193,7 +178,7 @@ graph TD
 
     B --> C["Training DB Check"]
 
-    C --> D{"DB changed<br/>or artifacts missing?"}
+    C --> D{"DB changed or artifacts missing?"}
 
     D -->|YES| E["Load data/*.db"]
     E --> F["processor.fit_transform()"]
@@ -201,7 +186,7 @@ graph TD
     G --> H["service_model.train()"]
     H --> I["Save Model Artifacts"]
 
-    D -->|NO| J["Load Existing<br/>Model Artifacts"]
+    D -->|NO| J["Load Existing Model Artifacts"]
 
     I --> K["Training Pipeline Ready"]
     J --> K
@@ -234,16 +219,15 @@ graph TD
 
     U --> V["get_dashboard_db()"]
 
-    V --> W{"Any *.db in<br/>data/prediction/?"}
+    V --> W{"Any DB in data/prediction?"}
 
-    W -->|YES| X["PRIORITY SOURCE<br/>data/prediction/*.db"]
-
-    W -->|NO| Y["FALLBACK SOURCE<br/>data/*.db"]
+    W -->|YES| X["Priority Source: prediction/*.db"]
+    W -->|NO| Y["Fallback Source: data/*.db"]
 
     X --> Z["dashboard_db"]
     Y --> Z
 
-    Z --> AA["load_data [CONFIG,db_path=dashboard_db]
+    Z --> AA["load_data(CONFIG, dashboard_db)"]
 
     AA --> AB["Load RAW DB"]
 
@@ -251,7 +235,7 @@ graph TD
 
     AC --> AD["feature_engineer.transform()"]
 
-    AD --> AE["Dashboard DataFrame<br/>df"]
+    AD --> AE["Dashboard DataFrame df"]
 
     AE --> AF["/eda"]
     AE --> AG["/predict"]
