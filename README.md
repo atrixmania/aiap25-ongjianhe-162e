@@ -101,6 +101,7 @@ aiap24-ongjianhe-162E/
 
 **Flowchart TD**
 ```mermaid
+graph TD
     A[app py]
 
     A --> B{Training required}
@@ -166,8 +167,6 @@ aiap24-ongjianhe-162E/
 **Pipeline TD**
 ```mermaid
 graph TD
-graph TD
-
     A["app.py"]
 
     %% =========================
