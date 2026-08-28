@@ -101,64 +101,37 @@ aiap24-ongjianhe-162E/
 
 **Flowchart TD**
 ```mermaid
-flowchart TD
+graph TD
+    A[app py] --> B{Training required}
+    B -->|YES| C[data loader]
+    B -->|NO| D[Load saved artifacts]
 
-    A[app.py]
+    C --> E[Data Processor]
+    E --> F[Feature Engineer]
+    F --> G[Service Model]
 
-    %% =========================
-    %% TRAINING CHECK
-    %% =========================
+    G --> H[Save model artifacts]
+    H --> I[Saved ML Artifacts]
 
-    A --> TC{Training required?}
+    D --> I
 
-    TC -->|YES| D[data_loader.py]
-    TC -->|NO| L[Load Saved Artifacts]
+    A --> J{Prediction DB available}
+    J -->|YES| K[Load prediction data]
+    J -->|NO| L[Start Dash]
 
-    D --> P[DataProcessor<br/>fit_transform()]
-    P --> F[FeatureEngineer<br/>fit_transform()]
-    F --> M[ServiceModel<br/>train()]
+    K --> M[Transform data]
+    M --> N[Feature engineering]
+    N --> O[Make predictions]
+    O --> P[Prediction Results]
 
-    M --> SA[Save service_model.pkl]
-    P --> SP[Save preprocess_model.pkl]
-    F --> SF[Save feature_model.pkl]
+    I --> Q[EDA page]
+    I --> R[Predict page]
+    P --> R
 
-    SA --> ART[(Saved ML Artifacts)]
-    SP --> ART
-    SF --> ART
+    Q --> L
+    R --> L
 
-    L --> ART
-
-    %% =========================
-    %% PREDICTION CHECK
-    %% =========================
-
-    A --> PC{Prediction DB available?}
-
-    PC -->|YES| PD[data_loader.py<br/>load_prediction_data()]
-    PC -->|NO| DASH[Start Dash]
-
-    PD --> PT[DataProcessor<br/>transform()]
-    PT --> FT[FeatureEngineer<br/>transform()]
-    FT --> MP[ServiceModel<br/>predict()]
-    MP --> PR[(Prediction Results)]
-
-    %% =========================
-    %% PRESENTATION
-    %% =========================
-
-    ART --> E[eda_page.py]
-    ART --> R[predict_page.py]
-
-    PR --> R
-
-    E --> DASH
-    R --> DASH
-
-    %% =========================
-    %% DASH
-    %% =========================
-
-    DASH --> UI[Dash Application<br/>/eda and /predict]
+    L --> S[Dash Application]
 ```
 
 ## 
