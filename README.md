@@ -166,90 +166,71 @@ flowchart TD
 ## Pipeline Flow
 
 1 Data Extraction (SQLite)
+
 2 Data Cleaning (remove duplicate, convert to small text, remove space)
+
 3 Feature Engineering
+
 4 Preprocessing (encoding + imputation)
+
 5 Model Training (3 models)
+
 6 Evaluation & Model Selection
+
 7 Prediction & Insight
+
 
 
 **Pipeline TD**
 ```mermaid
 flowchart TD
+
     A["app.py"]
 
-    %% =========================
-    %% TRAINING
-    %% =========================
+    %% TRAINING CHECK
+    A --> TC{"Training required?"}
 
-    A --> B["initialize_training()"]
+    TC -->|YES| D["data_loader.py"]
+    TC -->|NO| L["Load Saved Artifacts"]
 
-    B --> C["Training DB Check"]
+    D --> P["DataProcessor - fit_transform"]
+    P --> F["FeatureEngineer - fit_transform"]
+    F --> M["ServiceModel - train"]
 
-    C --> D{"DB changed<br/>or artifacts missing?"}
+    M --> SA["Save service_model.pkl"]
+    P --> SP["Save preprocess_model.pkl"]
+    F --> SF["Save feature_model.pkl"]
 
-    D -->|YES| E["Load data/*.db"]
-    E --> F["processor.fit_transform()"]
-    F --> G["feature_engineer.fit_transform()"]
-    G --> H["service_model.train()"]
-    H --> I["Save Model Artifacts"]
+    SA --> ART[("Saved ML Artifacts")]
+    SP --> ART
+    SF --> ART
 
-    D -->|NO| J["Load Existing<br/>Model Artifacts"]
+    L --> ART
 
-    I --> K["Training Pipeline Ready"]
-    J --> K
+    %% PREDICTION CHECK
+    A --> PC{"Prediction DB available?"}
 
-    %% =========================
-    %% PREDICTION
-    %% =========================
+    PC -->|YES| PD["data_loader.py - load_prediction_data"]
+    PC -->|NO| DASH["Start Dash"]
 
-    A --> L["initialize_prediction()"]
+    PD --> PT["DataProcessor - transform"]
+    PT --> FT["FeatureEngineer - transform"]
+    FT --> MP["ServiceModel - predict"]
+    MP --> PR[("Prediction Results")]
 
-    L --> M["Check data/prediction/"]
+    %% PRESENTATION
+    ART --> E["eda_page.py"]
+    ART --> R["predict_page.py"]
 
-    M --> N{"Prediction DB exists?"}
+    PR --> R
 
-    N -->|YES| O["Load prediction/*.db"]
-    N -->|NO| P["No Prediction Data"]
+    E --> DASH
+    R --> DASH
 
-    O --> Q["processor.transform()"]
-    Q --> R["feature_engineer.transform()"]
-    R --> S["service_model.predict()"]
-    S --> T["Prediction Results"]
-
-    %% =========================
-    %% DASHBOARD
-    %% =========================
-
-    K --> U["START DASHBOARD"]
-    P --> U
-    T --> U
-
-    U --> V["get_dashboard_db()"]
-
-    V --> W{"Any *.db in<br/>data/prediction/?"}
-
-    W -->|YES| X["PRIORITY SOURCE<br/>data/prediction/*.db"]
-
-    W -->|NO| Y["FALLBACK SOURCE<br/>data/*.db"]
-
-    X --> Z["dashboard_db"]
-    Y --> Z
-
-    Z --> AA["load_data(<br/>CONFIG,<br/>db_path=dashboard_db<br/>)"]
-
-    AA --> AB["Load RAW DB"]
-
-    AB --> AC["processor.transform()"]
-
-    AC --> AD["feature_engineer.transform()"]
-
-    AD --> AE["Dashboard DataFrame<br/>df"]
-
-    AE --> AF["/eda"]
-    AE --> AG["/predict"]
+    %% DASH
+    DASH --> UI["Dash Application - /eda and /predict"]
 ```
+
 
 |TRAINING |PREDICTION|
 |-|-|
