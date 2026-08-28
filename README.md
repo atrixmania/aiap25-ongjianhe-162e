@@ -183,52 +183,37 @@ flowchart TD
 
 **Pipeline TD**
 ```mermaid
-flowchart TD
+graph TD
+    A[app py] --> B{Training required}
+    B -->|YES| C[data loader]
+    B -->|NO| D[Load saved artifacts]
 
-    A["app.py"]
+    C --> E[Data Processor]
+    E --> F[Feature Engineer]
+    F --> G[Service Model]
 
-    %% TRAINING CHECK
-    A --> TC{"Training required?"}
+    G --> H[Save model artifacts]
+    H --> I[Saved ML Artifacts]
 
-    TC -->|YES| D["data_loader.py"]
-    TC -->|NO| L["Load Saved Artifacts"]
+    D --> I
 
-    D --> P["DataProcessor - fit_transform"]
-    P --> F["FeatureEngineer - fit_transform"]
-    F --> M["ServiceModel - train"]
+    A --> J{Prediction DB available}
+    J -->|YES| K[Load prediction data]
+    J -->|NO| L[Start Dash]
 
-    M --> SA["Save service_model.pkl"]
-    P --> SP["Save preprocess_model.pkl"]
-    F --> SF["Save feature_model.pkl"]
+    K --> M[Transform data]
+    M --> N[Feature engineering]
+    N --> O[Make predictions]
+    O --> P[Prediction Results]
 
-    SA --> ART[("Saved ML Artifacts")]
-    SP --> ART
-    SF --> ART
+    I --> Q[EDA page]
+    I --> R[Predict page]
+    P --> R
 
-    L --> ART
+    Q --> L
+    R --> L
 
-    %% PREDICTION CHECK
-    A --> PC{"Prediction DB available?"}
-
-    PC -->|YES| PD["data_loader.py - load_prediction_data"]
-    PC -->|NO| DASH["Start Dash"]
-
-    PD --> PT["DataProcessor - transform"]
-    PT --> FT["FeatureEngineer - transform"]
-    FT --> MP["ServiceModel - predict"]
-    MP --> PR[("Prediction Results")]
-
-    %% PRESENTATION
-    ART --> E["eda_page.py"]
-    ART --> R["predict_page.py"]
-
-    PR --> R
-
-    E --> DASH
-    R --> DASH
-
-    %% DASH
-    DASH --> UI["Dash Application - /eda and /predict"]
+    L --> S[Dash Application]
 ```
 
 
