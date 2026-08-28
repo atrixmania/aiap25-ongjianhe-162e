@@ -1,0 +1,107 @@
+                        app.py
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+             ▼                           ▼
+      initialize_training()       initialize_prediction()
+             │                           │
+             ▼                           ▼
+       artifacts exist?          prediction DB exists?
+       DB changed?                      │
+             │                          │
+        ┌────┴────┐                     ▼
+        │         │              load_prediction_data()
+       YES        NO                    │
+        │         │                    ▼
+        ▼         ▼              processor.transform()
+     LOAD DB    LOAD SAVED             │
+        │       ARTIFACTS              ▼
+        ▼                     feature_engineer.transform()
+ processor.fit_transform()           │
+        │                             ▼
+        ▼                     service_model.predict()
+ feature_engineer                      │
+ fit_transform()                       ▼
+        │                       prediction results
+        ▼                             │
+ service_model.train()                │
+        │                             │
+        ▼                             │
+ SAVE ARTIFACTS                       │
+        │                             │
+        └─────────────┬───────────────┘
+                      ▼
+                START DASH
+                      │
+             ┌────────┴────────┐
+             ▼                 ▼
+            /eda            /predict
+
+
+
+
+
+
+
+                                      app.py
+                                       │
+              ┌─────────────────┴─────────────────┐
+              │                                   │
+              ▼                                   ▼
+     initialize_training()              initialize_prediction()
+              │                                   │
+              ▼                                   ▼
+       Training DB Check                   Prediction DB
+              │                                   │
+        ┌─────┴─────┐                             ▼
+        │           │                    data/prediction/*.db
+     CHANGED     UNCHANGED                        │
+        │           │                             ▼
+        ▼           ▼                    processor.transform()
+   Load DB    Load Artifacts                     │
+        │           │                             ▼
+        ▼           │                 feature_engineer.transform()
+ processor.fit_    │                             │
+ transform()       │                             ▼
+        │           │                  service_model.predict()
+        ▼           │                             │
+ feature_engineer  │                             ▼
+ fit_transform()   │                    Prediction Results
+        │           │
+        ▼           │
+ service_model.    │
+ train()           │
+        │           │
+        ▼           │
+ Save Artifacts    │
+        │           │
+        └─────┬─────┘
+              │
+              ▼
+       START DASHBOARD
+              │
+              ▼
+    get_dashboard_db()
+              │
+       ┌──────┴──────┐
+       │             │
+       ▼             ▼
+prediction/*.db    data/*.db
+   priority         fallback
+       │             │
+       └──────┬──────┘
+              ▼
+       load_data(...)
+              │
+              ▼
+   processor.transform()
+              │
+              ▼
+feature_engineer.transform()
+              │
+              ▼
+        Dashboard df
+              │
+        ┌─────┴─────┐
+        ▼           ▼
+      /eda       /predict
