@@ -99,6 +99,7 @@ aiap24-ongjianhe-162E/
 
 ## Logical Steps
 
+```mermaid
 Flowchart TD
 
     A[app.py]
@@ -171,8 +172,8 @@ Flowchart TD
 6 Evaluation & Model Selection
 7 Prediction & Insight
 
+```mermaid
 Pipeline TD
-
     A["app.py"]
 
     %% =========================
