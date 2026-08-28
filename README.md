@@ -99,8 +99,9 @@ aiap24-ongjianhe-162E/
 
 ## Logical Steps
 
+**Flowchart TD**
 ```mermaid
-Flowchart TD
+flowchart TD
 
     A[app.py]
 
@@ -158,7 +159,7 @@ Flowchart TD
     %% =========================
 
     DASH --> UI[Dash Application<br/>/eda and /predict]
-
+```
 
 ## 
 
@@ -172,8 +173,10 @@ Flowchart TD
 6 Evaluation & Model Selection
 7 Prediction & Insight
 
+
+**Pipeline TD**
 ```mermaid
-Pipeline TD
+flowchart TD
     A["app.py"]
 
     %% =========================
@@ -246,7 +249,7 @@ Pipeline TD
 
     AE --> AF["/eda"]
     AE --> AG["/predict"]
-
+```
 
 |TRAINING |PREDICTION|
 |-|-|
