@@ -334,7 +334,7 @@ Used **F1-score** and **ROC-AUC** metrics which are suitable for binary classifi
 
 |Model|ROC-AUC Score|F1 Score|final score|
 |-|-|-|-|
-|Logistic Regression|0.790759|0.72424|0.764306|
+|Logistic Regression|0.790759|0.724244|0.764306|
 |LinearSVC|0.790717|0.719372|0.762179|
 |LGBMClassifier|0.790843|0.713755|0.760008|
 
