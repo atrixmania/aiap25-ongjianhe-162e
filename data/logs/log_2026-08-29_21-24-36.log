@@ -1,0 +1,902 @@
+================================================================================
+AI SG ASSESSMENT - APPLICATION START
+================================================================================
+BASE_DIR : C:\Users\ong\Desktop\AI Task\AI SG Assessement 2
+LOG_FILE : C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\logs\log_2026-08-29_21-24-36.log
+================================================================================
+Config for machine learning
+Running model.py
+[INFO] Loading application modules...
+
+========================================
+TRAINING CHECK
+========================================
+[INFO] Training metadata not found.
+[INFO] Training required.
+[INFO] Loading training data...
+[INFO] Loading raw training database
+
+[INFO] Loading C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\hotel.db
+[INFO] Loading database: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\hotel.db
+[INFO] Found tables: ['bookings', 'reviews']
+[INFO] Loading table 'bookings'
+[INFO] Shape: (118549, 36)
+[INFO] Loading table 'reviews'
+[INFO] Shape: (17583, 3)
+[INFO] Merged tables shape: (118600, 38)
+[INFO] Merged 1 databases
+[INFO] Final shape: (118600, 39)
+[INFO] After deduplication: (118196, 39)
+[INFO] Training data shape: (118196, 39)
+[INFO] Preparing final_rating target...
+[INFO] Rating classes:
+[0, 1, 2, 3, 4, 5, 6]
+[INFO] Rating model fitted.
+[INFO] Rating target preparation completed.
+[INFO] Original rating missing: 100664
+[INFO] final_rating distribution:
+final_rating
+0        86
+1        99
+2       526
+3      1550
+4     10603
+5      4581
+6    100751
+Name: count, dtype: Int64
+[INFO] final_rating created.
+[INFO] final_rating created.
+[INFO] final_rating distribution:
+final_rating
+0        86
+1        99
+2       526
+3      1550
+4     10603
+5      4581
+6    100751
+Name: count, dtype: Int64
+[INFO] Train rows      : 94556
+[INFO] Validation rows : 11820
+[INFO] Test rows       : 11820
+[INFO] Fitting DataProcessor on TRAIN only...
+
+========== AUTHORITATIVE CATEGORICAL MAPPINGS ==========
+[INFO] Encoder fitted: hotel
+        {'airport hotel': 0, 'city hotel': 1}
+[INFO] Encoder fitted: meal
+        {'BB (Bed & Breakfast)': 0, 'FB (Full Board)': 1, 'HB (Half Board)': 2, 'SC (Self Catering)': 3, 'missing': 4, 'undefined': 5}
+[INFO] Encoder fitted: market_segment
+        {'aviation': 0, 'complementary': 1, 'corporate': 2, 'direct': 3, 'groups': 4, 'missing': 5, 'offline-ta/to': 6, 'online-ta': 7, 'undefined': 8}
+[INFO] Encoder fitted: distribution_channel
+        {'corporate': 0, 'direct': 1, 'gds': 2, 'missing': 3, 'ta/to': 4, 'undefined': 5}
+[INFO] Encoder fitted: deposit_type
+        {'no-deposit': 0, 'non-refund': 1, 'refundable': 2}
+[INFO] Encoder fitted: customer_type
+        {'contract': 0, 'group': 1, 'missing': 2, 'transient': 3, 'transient-party': 4}
+[INFO] Encoder fitted: reservation_status
+        {'canceled': 0, 'check-out': 1, 'no-show': 2}
+
+========== ITERATIVE IMPUTER FIT ==========
+
+========== NUMERIC IMPUTATION ==========
+
+========== CATEGORICAL IMPUTATION ==========
+[INFO] Categorical columns processed: 7
+
+========== IMPUTER COLUMN SUMMARY ==========
+[INFO] Numeric columns: 0
+[INFO] Encoded categorical columns: 7
+[INFO] Raw categorical/text columns: 5
+[INFO] ID/text columns: 1
+[INFO] comment_topic_* columns excluded from IterativeImputer.
+[INFO] rating, final_rating and rating_predicted excluded from IterativeImputer.
+DataProcessor fitted
+
+========== AUTHORITATIVE CATEGORICAL MAPPINGS ==========
+[INFO] Encoder fitted: hotel
+        {'airport hotel': 0, 'city hotel': 1}
+[INFO] Encoder fitted: meal
+        {'BB (Bed & Breakfast)': 0, 'FB (Full Board)': 1, 'HB (Half Board)': 2, 'SC (Self Catering)': 3, 'missing': 4, 'undefined': 5}
+[INFO] Encoder fitted: market_segment
+        {'aviation': 0, 'complementary': 1, 'corporate': 2, 'direct': 3, 'groups': 4, 'missing': 5, 'offline-ta/to': 6, 'online-ta': 7, 'undefined': 8}
+[INFO] Encoder fitted: distribution_channel
+        {'corporate': 0, 'direct': 1, 'gds': 2, 'missing': 3, 'ta/to': 4, 'undefined': 5}
+[INFO] Encoder fitted: deposit_type
+        {'no-deposit': 0, 'non-refund': 1, 'refundable': 2}
+[INFO] Encoder fitted: customer_type
+        {'contract': 0, 'group': 1, 'missing': 2, 'transient': 3, 'transient-party': 4}
+[INFO] Encoder fitted: reservation_status
+        {'canceled': 0, 'check-out': 1, 'no-show': 2}
+
+========== ITERATIVE IMPUTER FIT ==========
+
+========== NUMERIC IMPUTATION ==========
+
+========== CATEGORICAL IMPUTATION ==========
+[INFO] Categorical columns processed: 7
+
+========== IMPUTER COLUMN SUMMARY ==========
+[INFO] Numeric columns: 0
+[INFO] Encoded categorical columns: 7
+[INFO] Raw categorical/text columns: 5
+[INFO] ID/text columns: 1
+[INFO] comment_topic_* columns excluded from IterativeImputer.
+[INFO] rating, final_rating and rating_predicted excluded from IterativeImputer.
+DataProcessor fitted
+
+========== RAW CATEGORICAL IMPUTATION ==========
+[INFO] country: 736 missing values filled with 'nan'
+
+========== AFTER IMPUTATION ==========
+
+Missing values:
+Unnamed: 0                            0
+booking_id                            0
+client_email                          0
+hotel                                 0
+is_canceled                           0
+lead_time                             0
+arrival_date_year                     0
+arrival_date_month                    0
+arrival_date_week_number              0
+arrival_date_day_of_month             0
+stays_in_weekend_nights               0
+stays_in_week_nights                  0
+adults                                0
+children                              0
+babies                                0
+meal                                  0
+country                               0
+market_segment                        0
+distribution_channel                  0
+is_repeated_guest                     0
+previous_cancellations                0
+previous_bookings_not_canceled        0
+reserved_room_type                    0
+assigned_room_type                    0
+booking_changes                       0
+deposit_type                          0
+agent                                 0
+company                               0
+days_in_waiting_list                  0
+customer_type                         0
+adr                                   0
+required_car_parking_spaces           0
+total_of_special_requests             0
+reservation_status                    0
+reservation_status_date               0
+promo_code                            0
+rating                            80537
+comment                               0
+source_db                             0
+rating_predicted                  14019
+final_rating                          0
+
+========== REMAINING MISSING VALUES ==========
+rating              80537
+rating_predicted    14019
+
+========== RESERVATION STATUS ==========
+reservation_status
+0    33485
+1    60154
+2      917
+Name: count, dtype: int64
+
+Reservation Status Percentages:
+reservation_status
+0    35.41
+1    63.62
+2     0.97
+Name: proportion, dtype: float64
+
+Reservation Status Labels:
+reservation_status
+check-out    60154
+canceled     33485
+no-show        917
+Name: count, dtype: int64
+DataProcessor - rating columns kept separate from IterativeImputer
+DataProcessor - final_rating preserved for downstream ML processing
+DataProcessor transform completed
+[INFO] Transforming validation data...
+
+========== RAW CATEGORICAL IMPUTATION ==========
+[INFO] country: 114 missing values filled with 'nan'
+
+========== AFTER IMPUTATION ==========
+
+Missing values:
+Unnamed: 0                            0
+booking_id                            0
+client_email                          0
+hotel                                 0
+is_canceled                           0
+lead_time                             0
+arrival_date_year                     0
+arrival_date_month                    0
+arrival_date_week_number              0
+arrival_date_day_of_month             0
+stays_in_weekend_nights               0
+stays_in_week_nights                  0
+adults                                0
+children                              0
+babies                                0
+meal                                  0
+country                               0
+market_segment                        0
+distribution_channel                  0
+is_repeated_guest                     0
+previous_cancellations                0
+previous_bookings_not_canceled        0
+reserved_room_type                    0
+assigned_room_type                    0
+booking_changes                       0
+deposit_type                          0
+agent                                 0
+company                               0
+days_in_waiting_list                  0
+customer_type                         0
+adr                                   0
+required_car_parking_spaces           0
+total_of_special_requests             0
+reservation_status                    0
+reservation_status_date               0
+promo_code                            0
+rating                            10065
+comment                               0
+source_db                             0
+rating_predicted                   1755
+final_rating                          0
+
+========== REMAINING MISSING VALUES ==========
+rating              10065
+rating_predicted     1755
+
+========== RESERVATION STATUS ==========
+reservation_status
+0    4233
+1    7449
+2     138
+Name: count, dtype: int64
+
+Reservation Status Percentages:
+reservation_status
+0    35.81
+1    63.02
+2     1.17
+Name: proportion, dtype: float64
+
+Reservation Status Labels:
+reservation_status
+check-out    7449
+canceled     4233
+no-show       138
+Name: count, dtype: int64
+DataProcessor - rating columns kept separate from IterativeImputer
+DataProcessor - final_rating preserved for downstream ML processing
+DataProcessor transform completed
+[INFO] Transforming test data...
+
+========== RAW CATEGORICAL IMPUTATION ==========
+[INFO] country: 103 missing values filled with 'nan'
+
+========== AFTER IMPUTATION ==========
+
+Missing values:
+Unnamed: 0                            0
+booking_id                            0
+client_email                          0
+hotel                                 0
+is_canceled                           0
+lead_time                             0
+arrival_date_year                     0
+arrival_date_month                    0
+arrival_date_week_number              0
+arrival_date_day_of_month             0
+stays_in_weekend_nights               0
+stays_in_week_nights                  0
+adults                                0
+children                              0
+babies                                0
+meal                                  0
+country                               0
+market_segment                        0
+distribution_channel                  0
+is_repeated_guest                     0
+previous_cancellations                0
+previous_bookings_not_canceled        0
+reserved_room_type                    0
+assigned_room_type                    0
+booking_changes                       0
+deposit_type                          0
+agent                                 0
+company                               0
+days_in_waiting_list                  0
+customer_type                         0
+adr                                   0
+required_car_parking_spaces           0
+total_of_special_requests             0
+reservation_status                    0
+reservation_status_date               0
+promo_code                            0
+rating                            10062
+comment                               0
+source_db                             0
+rating_predicted                   1758
+final_rating                          0
+
+========== REMAINING MISSING VALUES ==========
+rating              10062
+rating_predicted     1758
+
+========== RESERVATION STATUS ==========
+reservation_status
+0    4131
+1    7565
+2     124
+Name: count, dtype: int64
+
+Reservation Status Percentages:
+reservation_status
+0    34.95
+1    64.00
+2     1.05
+Name: proportion, dtype: float64
+
+Reservation Status Labels:
+reservation_status
+check-out    7565
+canceled     4131
+no-show       124
+Name: count, dtype: int64
+DataProcessor - rating columns kept separate from IterativeImputer
+DataProcessor - final_rating preserved for downstream ML processing
+DataProcessor transform completed
+[INFO] Preprocessor saved: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\preprocess.pkl
+[INFO] Running FeatureEngineer...
+[INFO] Fitting FeatureEngineer on TRAIN only...
+Pre-process - Business Rules by category
+Pre-process - Lead time & Service Level Computation
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour fitted
+Feature Engineering - Client & Driver Statistics fitted
+Feature Engineering - Bad Client Driver Statistics fitted
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour applied
+<ArrowStringArray>
+[  'Staycation stay (0-2 days)',          'Mid stay (2–4 days)',
+          'Mid stay (4–7 days)',        'Long stay (7–14 days)',
+       'Long stay (15–30 days)', 'Extreme Long stay (30+ days)']
+Length: 6, dtype: str
+Pre-process - Step 5.5 Top Comments Memory Built
+Feature Engineering - Step 5.6 FIT Comment Clustering
+Step 5.6 - Top 20 comments selected
+  01. not quite what we hoped the room was smaller than expected hard to recommend (count=2)
+  02. ended up in a downgraded room which soured the whole stay (count=2)
+  03. a middling experience housekeeping missed a few things not sure we d return (count=2)
+  04. assigned a cheaper room than the one we reserved and no explanation was offered (count=2)
+  05. a letdown in places the value just wasn t there not worth the rate (count=2)
+  06. a middling experience a few issues went unresolved adequate but no more (count=2)
+  07. not great honestly check in was slow it was just okay (count=2)
+  08. our booking sat on the waiting list far too long a stressful start to the trip (count=2)
+  09. held on a waiting list before we could check in really frustrating (count=2)
+  10. we were downgraded from the room we booked with no discount for the trouble (count=2)
+  11. a slightly frustrating stay the room was smaller than expected it left us a little flat (count=2)
+  12. somewhat underwhelming the room felt tired wouldn t rush back (count=2)
+  13. got a lower room category than we reserved really not good enough (count=2)
+  14. a bit disappointing the room needed a refresh it left us a little flat (count=2)
+  15. a mixed stay the front desk was slow we d look elsewhere next time (count=2)
+  16. on the waiting list for days before our room was confirmed not good enough (count=2)
+  17. an average stay at best the room was smaller than expected a shame overall (count=2)
+  18. they put us in a smaller room than we booked really not good enough (count=2)
+  19. somewhat underwhelming the value just wasn t there we d look elsewhere next time (count=2)
+  20. not quite what we hoped service was hit and miss wouldn t rush back (count=2)
+Step 5.6 - Loading SentenceTransformer...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|                                                                                      | 0/103 [00:00<?, ?it/s]Loading weights: 100%|##########################################################################| 103/103 [00:00<00:00, 2101.61it/s]
+Step 5.6 - Generated embeddings for 20 comments
+Feature Engineering - Step 5.6 FIT Top Comment Clustering completed
+Step 5.6 - 10 clusters created
+Feature Engineering - Step 5.6 APPLY Comment Clustering
+Step 5.6 - Applying clustering to 12,052 unique comments from 94,556 rows
+Step 5.6 - Cached comments: 20
+Step 5.6 - New comments requiring embedding: 12,032
+Feature Engineering - Step 5.6 APPLY Top Comment Clustering completed
+FeatureEngineering fitted
+Pre-process - Business Rules by category
+Pre-process - Lead time & Service Level Computation
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour applied
+<ArrowStringArray>
+[  'Staycation stay (0-2 days)',          'Mid stay (2–4 days)',
+          'Mid stay (4–7 days)',        'Long stay (7–14 days)',
+       'Long stay (15–30 days)', 'Extreme Long stay (30+ days)']
+Length: 6, dtype: str
+Pre-process - Step 5.5 Top Comments Memory Built
+Feature Engineering - Step 5.6 APPLY Comment Clustering
+Step 5.6 - Applying clustering to 12,052 unique comments from 94,556 rows
+Step 5.6 - Cached comments: 12,052
+Step 5.6 - New comments requiring embedding: 0
+Feature Engineering - Step 5.6 APPLY Top Comment Clustering completed
+FeatureEngineering transform completed
+[INFO] Transforming validation features...
+Pre-process - Business Rules by category
+Pre-process - Lead time & Service Level Computation
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour applied
+<ArrowStringArray>
+[  'Staycation stay (0-2 days)',          'Mid stay (2–4 days)',
+          'Mid stay (4–7 days)',        'Long stay (7–14 days)',
+       'Long stay (15–30 days)', 'Extreme Long stay (30+ days)']
+Length: 6, dtype: str
+Pre-process - Step 5.5 Top Comments Memory Built
+Feature Engineering - Step 5.6 APPLY Comment Clustering
+Step 5.6 - Applying clustering to 1,687 unique comments from 11,820 rows
+Step 5.6 - Cached comments: 324
+Step 5.6 - New comments requiring embedding: 1,363
+Feature Engineering - Step 5.6 APPLY Top Comment Clustering completed
+FeatureEngineering transform completed
+[INFO] Transforming test features...
+Pre-process - Business Rules by category
+Pre-process - Lead time & Service Level Computation
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour applied
+<ArrowStringArray>
+[         'Mid stay (2–4 days)',   'Staycation stay (0-2 days)',
+          'Mid stay (4–7 days)',        'Long stay (7–14 days)',
+       'Long stay (15–30 days)', 'Extreme Long stay (30+ days)']
+Length: 6, dtype: str
+Pre-process - Step 5.5 Top Comments Memory Built
+Feature Engineering - Step 5.6 APPLY Comment Clustering
+Step 5.6 - Applying clustering to 1,677 unique comments from 11,820 rows
+Step 5.6 - Cached comments: 387
+Step 5.6 - New comments requiring embedding: 1,290
+Feature Engineering - Step 5.6 APPLY Top Comment Clustering completed
+FeatureEngineering transform completed
+[INFO] Feature engineer saved: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\feature.pkl
+[INFO] Training ServiceModel...
+
+==============================
+COMMENT TOPIC LEARNING
+==============================
+Fitting comment TF-IDF on training data...
+Fitting comment SVD on training data...
+
+==============================
+FINAL RATING MODEL TRAINING
+==============================
+Training Logistic Regression...
+C:\Users\ong\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\linear_model\_logistic.py:1184: FutureWarning: 'n_jobs' has no effect since 1.8 and will be removed in 1.10. You provided 'n_jobs=-1', please leave it unspecified.
+  warnings.warn(msg, category=FutureWarning)
+Logistic Regression completed.
+Training Linear SVC...
+Linear SVC completed.
+Training LightGBM...
+LightGBM completed.
+
+==============================
+RESERVATION STATUS TRAINING
+==============================
+Training Reservation Status Model...
+C:\Users\ong\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\linear_model\_logistic.py:1184: FutureWarning: 'n_jobs' has no effect since 1.8 and will be removed in 1.10. You provided 'n_jobs=-1', please leave it unspecified.
+  warnings.warn(msg, category=FutureWarning)
+Reservation Status Model completed.
+
+==============================
+RESERVATION STATUS EVALUATION
+==============================
+              precision    recall  f1-score   support
+
+           0       0.95      0.22      0.36      4131
+           1       0.78      0.60      0.68      7565
+           2       0.02      0.77      0.04       124
+
+    accuracy                           0.47     11820
+   macro avg       0.58      0.53      0.36     11820
+weighted avg       0.83      0.47      0.56     11820
+
+
+==============================
+FINAL RATING VALIDATION
+==============================
+C:\Users\ong\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\utils\validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+C:\Users\ong\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\utils\validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+              model       f1      roc  final_score
+         Linear SVC 0.964612 0.992757     0.975870
+Logistic Regression 0.920807 0.987941     0.947660
+           LightGBM 0.791443 0.966021     0.861274
+
+BEST RATING MODEL SELECTED: Linear SVC
+[INFO] Customer email index ready: 118196 customers
+FAST COMMENT INDEX READY
+[INFO] Training data saved: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\train.parquet
+[INFO] Service model saved: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\service_model.pkl
+[INFO] Metadata updated: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\training_metadata.json
+[INFO] Service model saved: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\trained\service_model.pkl
+[INFO] Training completed.
+[INFO] Loading dashboard data after training...
+[INFO] Searching for dashboard database...
+[INFO] No prediction database found.
+[INFO] Falling back to main database.
+[INFO] Main DB count: 1
+[INFO] Dashboard DB source: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\hotel.db
+[INFO] DB modified: 2026-08-26 19:05:24.549517
+[INFO] Loading raw dashboard data...
+[INFO] Explicit database path supplied.
+[INFO] Bypassing saved training dataset.
+[INFO] Raw database selected: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\hotel.db
+[INFO] Loading database: C:\Users\ong\Desktop\AI Task\AI SG Assessement 2\data\hotel.db
+[INFO] Found tables: ['bookings', 'reviews']
+[INFO] Loading table 'bookings'
+[INFO] Shape: (118549, 36)
+[INFO] Loading table 'reviews'
+[INFO] Shape: (17583, 3)
+[INFO] Merged tables shape: (118600, 38)
+[INFO] After deduplication: (118196, 39)
+[INFO] Raw dashboard data shape: (118196, 39)
+[INFO] Processing dashboard data...
+
+========== RAW CATEGORICAL IMPUTATION ==========
+[INFO] country: 953 missing values filled with 'nan'
+
+========== AFTER IMPUTATION ==========
+
+Missing values:
+Unnamed: 0                             0
+booking_id                             0
+client_email                           0
+hotel                                  0
+is_canceled                            0
+lead_time                              0
+arrival_date_year                      0
+arrival_date_month                     0
+arrival_date_week_number               0
+arrival_date_day_of_month              0
+stays_in_weekend_nights                0
+stays_in_week_nights                   0
+adults                                 0
+children                               0
+babies                                 0
+meal                                   0
+country                                0
+market_segment                         0
+distribution_channel                   0
+is_repeated_guest                      0
+previous_cancellations                 0
+previous_bookings_not_canceled         0
+reserved_room_type                     0
+assigned_room_type                     0
+booking_changes                        0
+deposit_type                           0
+agent                                  0
+company                                0
+days_in_waiting_list                   0
+customer_type                          0
+adr                                    0
+required_car_parking_spaces            0
+total_of_special_requests              0
+reservation_status                     0
+reservation_status_date                0
+promo_code                             0
+rating                            100664
+comment                                0
+source_db                              0
+rating_predicted                   17532
+final_rating                           0
+
+========== REMAINING MISSING VALUES ==========
+rating              100664
+rating_predicted     17532
+
+========== RESERVATION STATUS ==========
+reservation_status
+0    41849
+1    75168
+2     1179
+Name: count, dtype: int64
+
+Reservation Status Percentages:
+reservation_status
+0    35.41
+1    63.60
+2     1.00
+Name: proportion, dtype: float64
+
+Reservation Status Labels:
+reservation_status
+check-out    75168
+canceled     41849
+no-show       1179
+Name: count, dtype: int64
+DataProcessor - rating columns kept separate from IterativeImputer
+DataProcessor - final_rating preserved for downstream ML processing
+DataProcessor transform completed
+[INFO] DataProcessor transform completed
+[INFO] Applying feature engineering...
+Pre-process - Business Rules by category
+Pre-process - Lead time & Service Level Computation
+Feature Engineering - Step 5.4.1 Revenue Exposure × Historical Cancellation Behaviour applied
+<ArrowStringArray>
+[  'Staycation stay (0-2 days)',          'Mid stay (2–4 days)',
+          'Mid stay (4–7 days)',        'Long stay (7–14 days)',
+       'Long stay (15–30 days)', 'Extreme Long stay (30+ days)']
+Length: 6, dtype: str
+Pre-process - Step 5.5 Top Comments Memory Built
+Feature Engineering - Step 5.6 APPLY Comment Clustering
+Step 5.6 - Applying clustering to 14,705 unique comments from 118,196 rows
+Step 5.6 - Cached comments: 14,705
+Step 5.6 - New comments requiring embedding: 0
+Feature Engineering - Step 5.6 APPLY Top Comment Clustering completed
+FeatureEngineering transform completed
+[INFO] FeatureEngineer transform completed
+[INFO] Processed dashboard data shape: (118196, 63)
+[INFO] Final dashboard dataframe: (118196, 63)
+[INFO] Training pipeline ready.
+
+========================================
+PREDICTION CHECK
+========================================
+[INFO] No prediction databases found.
+[INFO] Prediction skipped.
+Load EDA Page
+Predict Page Loading
+[INFO] Prediction model: Linear SVC
+
+==============================
+MODEL CATEGORICAL CATEGORIES
+==============================
+hotel: ['city hotel', 'airport hotel']
+meal: ['BB (Bed & Breakfast)', 'HB (Half Board)', 'FB (Full Board)', 'SC (Self Catering)', 'undefined']
+market_segment: ['offline-ta/to', 'online-ta', 'groups', 'direct', 'corporate', 'complementary', 'aviation', 'undefined']
+distribution_channel: ['direct', 'corporate', 'gds', 'undefined', 'ta/to']
+deposit_type: ['non-refund', 'no-deposit', 'refundable']
+customer_type: ['transient', 'transient-party', 'contract', 'group']
+season_group: ['off_peak_season', 'peak_season']
+country_group: ['America', 'Europe', 'local', 'north_asia', 'oceania', 'others', 'southeast_asia']
+adr_group: ['High value (500–1k)', 'Low value (≤100)', 'Mid value (100–500)', 'Premium (1K+)', 'Unknown']
+previous_cancellations_group: ['Low cancellation (≤3)', 'Medium cancellation (4–7)', 'Very high cancellation (10+)']
+days_in_waiting_list_group: ['Extreme Long (30+ days)', 'Long (15–30 days)', 'Mid (8–14 days)', 'Short (0-7 days)']
+guest_group: ['Couple', 'Family', 'Group', 'Single', 'Unknown']
+client_segment: ['Client - bad review', 'Client - good review', 'Client - neutral review']
+reservation_status: ['canceled', 'no-show', 'check-out']
+==============================
+END MODEL CATEGORIES
+==============================
+
+[INFO] Registering EDA callbacks...
+[INFO] EDA dataframe ready: (118196, 71)
+[INFO] Registering Prediction callbacks...
+Dash is running on http://127.0.0.1:8050/
+
+
+==============================
+PREDICTION INPUT
+==============================
+comment: '' (type=str)
+client_email: 'unknown' (type=str)
+client_segment: 'low-risk' (type=str)
+is_top_bad_client: 0.0 (type=float)
+client_bad_rate: np.float64(0.0) (type=float64)
+hotel: 'city hotel' (type=str)
+country_group: 'local' (type=str)
+adr_group: 'Low value (≤100)' (type=str)
+previous_cancellations_group: 'unknown' (type=str)
+days_in_waiting_list_group: 'unknown' (type=str)
+deposit_type: 'unknown' (type=str)
+customer_type: 'unknown' (type=str)
+guest_group: 'unknown' (type=str)
+season_group: 'unknown' (type=str)
+meal: 'unknown' (type=str)
+market_segment: 'unknown' (type=str)
+distribution_channel: 'unknown' (type=str)
+reservation_status: 'canceled' (type=str)
+is_canceled: 1.0 (type=float)
+
+RESERVATION STATUS SELECTED: canceled
+RESERVATION STATUS TYPE: str
+IS CANCELED VALUE: 1.0
+
+==============================
+ML RATING
+==============================
+ML Predicted Rating: 6
+
+==============================
+CUSTOMER PRIORITY
+==============================
+Client Email: unknown
+Email Known: 0.0
+Email Historical Bad Rate: 0.0
+is_top_bad_client: 0.0
+client_bad_rate: 0.0
+bad_client_score: 0.0
+ML Rating Before Customer Priority: 6
+Final Rating After Customer Priority: 6
+
+STATUS MODEL CLASSES: [np.int64(0), np.int64(1), np.int64(2)]
+STATUS MODEL RAW PROBABILITIES: [0.33367599 0.32703716 0.33928684]
+
+STATUS ML MAPPING:
+ML Cancellation: 33.36759908500416
+ML No-Show: 32.70371645556931
+ML Check-Out: 33.92868445942655
+
+RESERVATION STATUS INPUT: canceled
+IS CANCELED INPUT: 1.0
+
+STATUS MAPPED PROBABILITIES:
+Cancellation: 100.0
+No-Show: 0.0
+Check-Out: 0.0
+
+==============================
+FINAL PREDICTION
+==============================
+ML Predicted Rating: 6
+Final Predicted Rating: 6
+Rating Risk: 14.7
+SLA Risk: 36.7
+Client Email: unknown
+is_top_bad_client: 0.0
+Client Bad Rate: 0.0
+Bad Client Score: 0.0
+
+Reservation Status Probabilities:
+Cancellation: 100.0 %
+No-Show: 0.0 %
+Check-Out: 0.0 %
+
+==============================
+PREDICTION INPUT
+==============================
+comment: '' (type=str)
+client_email: 'ivan.wan9160@outlook.com' (type=str)
+client_segment: 'high-risk' (type=str)
+is_top_bad_client: 1.0 (type=float)
+client_bad_rate: np.float64(1.0) (type=float64)
+hotel: 'city hotel' (type=str)
+country_group: 'local' (type=str)
+adr_group: 'Low value (≤100)' (type=str)
+previous_cancellations_group: 'unknown' (type=str)
+days_in_waiting_list_group: 'unknown' (type=str)
+deposit_type: 'unknown' (type=str)
+customer_type: 'unknown' (type=str)
+guest_group: 'unknown' (type=str)
+season_group: 'unknown' (type=str)
+meal: 'unknown' (type=str)
+market_segment: 'unknown' (type=str)
+distribution_channel: 'unknown' (type=str)
+reservation_status: 'canceled' (type=str)
+is_canceled: 1.0 (type=float)
+
+RESERVATION STATUS SELECTED: canceled
+RESERVATION STATUS TYPE: str
+IS CANCELED VALUE: 1.0
+
+==============================
+ML RATING
+==============================
+ML Predicted Rating: 6
+
+==============================
+CUSTOMER PRIORITY
+==============================
+Client Email: ivan.wan9160@outlook.com
+Email Known: 1.0
+Email Historical Bad Rate: 1.0
+is_top_bad_client: 1.0
+client_bad_rate: 1.0
+bad_client_score: 1.0
+ML Rating Before Customer Priority: 6
+[CUSTOMER RULE] Known high-risk email -> maximum rating 3
+Final Rating After Customer Priority: 3
+
+STATUS MODEL CLASSES: [np.int64(0), np.int64(1), np.int64(2)]
+STATUS MODEL RAW PROBABILITIES: [0.33356464 0.32726613 0.33916923]
+
+STATUS ML MAPPING:
+ML Cancellation: 33.35646414011187
+ML No-Show: 32.726612709018546
+ML Check-Out: 33.91692315086958
+
+RESERVATION STATUS INPUT: canceled
+IS CANCELED INPUT: 1.0
+
+STATUS MAPPED PROBABILITIES:
+Cancellation: 100.0
+No-Show: 0.0
+Check-Out: 0.0
+
+==============================
+FINAL PREDICTION
+==============================
+ML Predicted Rating: 6
+Final Predicted Rating: 3
+Rating Risk: 57.3
+SLA Risk: 53.2
+Client Email: ivan.wan9160@outlook.com
+is_top_bad_client: 1.0
+Client Bad Rate: 1.0
+Bad Client Score: 1.0
+
+Reservation Status Probabilities:
+Cancellation: 100.0 %
+No-Show: 0.0 %
+Check-Out: 0.0 %
+
+==============================
+PREDICTION INPUT
+==============================
+comment: '' (type=str)
+client_email: 'ivan.wan9160@outlook.com' (type=str)
+client_segment: 'high-risk' (type=str)
+is_top_bad_client: 1.0 (type=float)
+client_bad_rate: np.float64(1.0) (type=float64)
+hotel: 'city hotel' (type=str)
+country_group: 'local' (type=str)
+adr_group: 'Low value (≤100)' (type=str)
+previous_cancellations_group: 'Medium cancellation (4–7)' (type=str)
+days_in_waiting_list_group: 'unknown' (type=str)
+deposit_type: 'unknown' (type=str)
+customer_type: 'unknown' (type=str)
+guest_group: 'unknown' (type=str)
+season_group: 'unknown' (type=str)
+meal: 'unknown' (type=str)
+market_segment: 'unknown' (type=str)
+distribution_channel: 'unknown' (type=str)
+reservation_status: 'unknown' (type=str)
+is_canceled: np.float64(0.0) (type=float64)
+
+RESERVATION STATUS SELECTED: unknown
+RESERVATION STATUS TYPE: str
+IS CANCELED VALUE: 0.0
+
+==============================
+ML RATING
+==============================
+ML Predicted Rating: 6
+
+==============================
+CUSTOMER PRIORITY
+==============================
+Client Email: ivan.wan9160@outlook.com
+Email Known: 1.0
+Email Historical Bad Rate: 1.0
+is_top_bad_client: 1.0
+client_bad_rate: 1.0
+bad_client_score: 1.0
+ML Rating Before Customer Priority: 6
+[CUSTOMER RULE] Known high-risk email -> maximum rating 3
+Final Rating After Customer Priority: 3
+
+STATUS MODEL CLASSES: [np.int64(0), np.int64(1), np.int64(2)]
+STATUS MODEL RAW PROBABILITIES: [0.33355711 0.32728412 0.33915877]
+
+STATUS ML MAPPING:
+ML Cancellation: 33.355711157585674
+ML No-Show: 32.728412014563816
+ML Check-Out: 33.91587682785051
+
+RESERVATION STATUS INPUT: unknown
+IS CANCELED INPUT: 0.0
+
+STATUS MAPPED PROBABILITIES:
+Cancellation: 33.4
+No-Show: 32.7
+Check-Out: 33.9
+
+==============================
+FINAL PREDICTION
+==============================
+ML Predicted Rating: 6
+Final Predicted Rating: 3
+Rating Risk: 58.3
+SLA Risk: 55.8
+Client Email: ivan.wan9160@outlook.com
+is_top_bad_client: 1.0
+Client Bad Rate: 1.0
+Bad Client Score: 1.0
+
+Reservation Status Probabilities:
+Cancellation: 33.4 %
+No-Show: 32.7 %
+Check-Out: 33.9 %
