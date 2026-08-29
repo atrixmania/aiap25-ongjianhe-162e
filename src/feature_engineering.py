@@ -37,6 +37,8 @@ class FeatureEngineer:
 
         self.top_bad_clients = []
 
+        self.revenue_cancellation_fitted = False
+
         self.comment_model = None
         self.comment_cluster_model = None
         self.comment_categories = {}
@@ -71,21 +73,71 @@ class FeatureEngineer:
 
         df = train_df.copy()
 
+        # =====================================================
+        # Step 5.1 Business Rules
+        # =====================================================
+
         df = self._business_rules(df)
+
+        # =====================================================
+        # Step 5.2 Lead Time / Guest Features
+        # =====================================================
 
         df = self._lead_time(df)
 
+        # =====================================================
+        # Step 5.4.1 Revenue Exposure ×
+        # Historical Cancellation Behaviour - FIT
+        # =====================================================
+
+        self._fit_revenue_cancellation(df)
+
+        # =====================================================
+        # Step 5.3 Client & Driver Behaviour - FIT
+        # =====================================================
+
         self._fit_clientdriver_behaviour(df)
+
+        # =====================================================
+        # Step 5.4 Bad Client & Driver - FIT
+        # =====================================================
 
         self._fit_bad_clientdriver(df)
 
+        # =====================================================
+        # Step 5.4.1 Revenue Exposure ×
+        # Historical Cancellation Behaviour - APPLY
+        # =====================================================
+
+        df = self._apply_revenue_cancellation(df)
+
+        # =====================================================
+        # Step 5.3 Client & Driver Behaviour - APPLY
+        # =====================================================
+
         df = self._apply_clientdriver_behaviour(df)
+
+        # =====================================================
+        # Step 5.4 Bad Client & Driver - APPLY
+        # =====================================================
 
         df = self._apply_bad_clientdriver(df)
 
+        # =====================================================
+        # Step 5.5 Top Comment Memory Store
+        # =====================================================
+
         df = self._top_comment(df)
 
+        # =====================================================
+        # Step 5.6 Comment Clustering - FIT
+        # =====================================================
+
         self._fit_top20_comment(df)
+
+        # =====================================================
+        # Step 5.6 Comment Clustering - APPLY
+        # =====================================================
 
         df = self._apply_top20_comment(df)
 
@@ -94,6 +146,7 @@ class FeatureEngineer:
         )
 
         return self
+
 
 
     # =====================================================
@@ -105,20 +158,58 @@ class FeatureEngineer:
         if self.client_stats is None:
 
             raise RuntimeError(
-                "DataProcessor must be fitted before transform()"
+                "FeatureEngineer must be fitted before transform()"
+            )
+
+        if not self.revenue_cancellation_fitted:
+
+            raise RuntimeError(
+                "Step 5.4.1 Revenue Cancellation features "
+                "must be fitted before transform()"
             )
 
         df = df.copy()
 
+        # =====================================================
+        # Step 5.1 Business Rules
+        # =====================================================
+
         df = self._business_rules(df)
+
+        # =====================================================
+        # Step 5.2 Lead Time / Guest Features
+        # =====================================================
 
         df = self._lead_time(df)
 
+        # =====================================================
+        # Step 5.4.1 Revenue Exposure ×
+        # Historical Cancellation Behaviour - APPLY
+        # =====================================================
+
+        df = self._apply_revenue_cancellation(df)
+
+        # =====================================================
+        # Step 5.3 Client & Driver Behaviour - APPLY
+        # =====================================================
+
         df = self._apply_clientdriver_behaviour(df)
+
+        # =====================================================
+        # Step 5.4 Bad Client & Driver - APPLY
+        # =====================================================
 
         df = self._apply_bad_clientdriver(df)
 
+        # =====================================================
+        # Step 5.5 Top Comment Memory Store
+        # =====================================================
+
         df = self._top_comment(df)
+
+        # =====================================================
+        # Step 5.6 Comment Clustering - APPLY
+        # =====================================================
 
         df = self._apply_top20_comment(df)
 
@@ -596,6 +687,312 @@ class FeatureEngineer:
 
 
         return df
+
+
+
+    # =========================================================
+    # Step 5.4.1 Revenue Exposure ×
+    # Historical Cancellation Behaviour - FIT
+    # =========================================================
+
+    def _fit_revenue_cancellation(self, df):
+
+        required_columns = [
+            "stays_in_weekend_nights",
+            "stays_in_week_nights",
+            "adr",
+            "previous_cancellations",
+            "previous_bookings_not_canceled"
+        ]
+
+        missing_columns = [
+            column
+            for column in required_columns
+            if column not in df.columns
+        ]
+
+        if missing_columns:
+
+            raise ValueError(
+                "Step 5.4.1 requires missing columns: "
+                f"{missing_columns}"
+            )
+
+        # =====================================================
+        # Step 5.4.1 is deterministic feature engineering.
+        #
+        # No statistical model needs to be learned during FIT.
+        # We simply validate that the required input columns
+        # exist.
+        # =====================================================
+
+        self.revenue_cancellation_fitted = True
+
+        print(
+            "Feature Engineering - "
+            "Step 5.4.1 Revenue Exposure × "
+            "Historical Cancellation Behaviour fitted"
+        )
+
+
+    # =========================================================
+    # Step 5.4.1 Revenue Exposure ×
+    # Historical Cancellation Behaviour - TRANSFORM
+    # =========================================================
+
+    def _apply_revenue_cancellation(self, df):
+
+        if not self.revenue_cancellation_fitted:
+
+            raise RuntimeError(
+                "Step 5.4.1 Revenue Cancellation features "
+                "must be fitted before transform()"
+            )
+
+        df = df.copy()
+
+
+        # =====================================================
+        # Convert required columns to numeric
+        # =====================================================
+
+        df["stays_in_weekend_nights"] = pd.to_numeric(
+            df["stays_in_weekend_nights"],
+            errors="coerce"
+        )
+
+        df["stays_in_week_nights"] = pd.to_numeric(
+            df["stays_in_week_nights"],
+            errors="coerce"
+        )
+
+        df["adr"] = pd.to_numeric(
+            df["adr"],
+            errors="coerce"
+        )
+
+        df["previous_cancellations"] = pd.to_numeric(
+            df["previous_cancellations"],
+            errors="coerce"
+        )
+
+        df["previous_bookings_not_canceled"] = pd.to_numeric(
+            df["previous_bookings_not_canceled"],
+            errors="coerce"
+        )
+
+
+        # =====================================================
+        # Total Nights
+        # =====================================================
+
+        df["total_nights"] = (
+            df["stays_in_weekend_nights"]
+            +
+            df["stays_in_week_nights"]
+        )
+
+
+        # =====================================================
+        # Potential Revenue
+        #
+        # ADR × Total Nights
+        # =====================================================
+
+        df["potential_revenue"] = (
+            df["adr"]
+            *
+            df["total_nights"]
+        )
+
+
+        # =====================================================
+        # Cancellation History Rate
+        #
+        # Purpose:
+        # Measures the customer's historical cancellation
+        # behaviour directly from previous bookings.
+        #
+        # Formula:
+        #
+        # previous_cancellations /
+        # (
+        #     previous_cancellations
+        #     +
+        #     previous_bookings_not_canceled
+        # )
+        #
+        # .replace(0, 1) prevents division by zero.
+        # =====================================================
+
+        df["cancellation_history_rate"] = (
+
+            df["previous_cancellations"]
+
+            /
+
+            (
+                df["previous_cancellations"]
+                +
+                df["previous_bookings_not_canceled"]
+            ).replace(0, 1)
+        )
+
+
+        # =====================================================
+        # Revenue Cancellation Exposure
+        #
+        # Purpose:
+        # Estimates the potential revenue exposed to the
+        # customer's historical cancellation behaviour.
+        #
+        # Formula:
+        #
+        # potential_revenue
+        # ×
+        # cancellation_history_rate
+        # =====================================================
+
+        df["revenue_cancellation_exposure"] = (
+
+            df["potential_revenue"]
+
+            *
+
+            df["cancellation_history_rate"]
+        )
+
+
+        # =====================================================
+        # Total Previous Bookings
+        #
+        # Used as the denominator for historical_cancel_rate.
+        # =====================================================
+
+        df["total_previous_bookings"] = (
+
+            df["previous_cancellations"]
+
+            +
+
+            df["previous_bookings_not_canceled"]
+        )
+
+
+        # =====================================================
+        # Historical Cancellation Rate
+        #
+        # Purpose:
+        # Provides the historical cancellation proportion
+        # used for revenue-at-risk calculation.
+        #
+        # Formula:
+        #
+        # previous_cancellations /
+        # total_previous_bookings
+        #
+        # .replace(0, 1) prevents division by zero.
+        # =====================================================
+
+        df["historical_cancel_rate"] = (
+
+            df["previous_cancellations"]
+
+            /
+
+            df["total_previous_bookings"].replace(0, 1)
+        )
+
+
+        # =====================================================
+        # Revenue at Risk
+        #
+        # Purpose:
+        # Estimates the historical cancellation-based
+        # revenue risk for the current booking.
+        #
+        # Formula:
+        #
+        # potential_revenue
+        # ×
+        # historical_cancel_rate
+        # =====================================================
+
+        df["revenue_at_risk"] = (
+
+            df["potential_revenue"]
+
+            *
+
+            df["historical_cancel_rate"]
+        )
+
+
+        # =====================================================
+        # Total Nights Group
+        # =====================================================
+
+        df["total_nights_group"] = np.select(
+
+            [
+                df["total_nights"] <= 2,
+
+                (
+                    (df["total_nights"] > 2)
+                    &
+                    (df["total_nights"] <= 4)
+                ),
+
+                (
+                    (df["total_nights"] > 4)
+                    &
+                    (df["total_nights"] <= 7)
+                ),
+
+                (
+                    (df["total_nights"] > 7)
+                    &
+                    (df["total_nights"] <= 14)
+                ),
+
+                (
+                    (df["total_nights"] > 14)
+                    &
+                    (df["total_nights"] <= 30)
+                ),
+
+                df["total_nights"] > 30
+            ],
+
+            [
+                "Staycation stay (0-2 days)",
+                "Mid stay (2–4 days)",
+                "Mid stay (4–7 days)",
+                "Long stay (7–14 days)",
+                "Long stay (15–30 days)",
+                "Extreme Long stay (30+ days)"
+            ],
+
+            default="Unknown"
+        )
+
+
+        print(
+            "Feature Engineering - "
+            "Step 5.4.1 Revenue Exposure × "
+            "Historical Cancellation Behaviour applied"
+        )
+
+
+        print(
+            df["total_nights_group"].unique()
+        )
+
+
+        return df
+
+
+    
 
 
     # =========================================================

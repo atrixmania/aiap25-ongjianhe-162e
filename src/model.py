@@ -1,10 +1,9 @@
-# =========================
-
+# =========================================================
 # src/model.py
-
-# =========================
+# =========================================================
 
 import os
+import json
 import joblib
 import warnings
 import numpy as np
@@ -13,9 +12,9 @@ import pandas as pd
 from datetime import datetime
 
 from sklearn.metrics import (
-classification_report,
-f1_score,
-roc_auc_score
+    classification_report,
+    f1_score,
+    roc_auc_score
 )
 
 from sklearn.linear_model import LogisticRegression
@@ -26,10 +25,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from sklearn.feature_extraction.text import (
-HashingVectorizer,
-TfidfTransformer,
-TfidfVectorizer,
-CountVectorizer
+    HashingVectorizer,
+    TfidfTransformer,
+    TfidfVectorizer,
+    CountVectorizer
 )
 
 from sklearn.preprocessing import OneHotEncoder
@@ -38,21 +37,21 @@ from sklearn.decomposition import TruncatedSVD
 
 from sklearn.exceptions import ConvergenceWarning
 
+
 warnings.filterwarnings(
-"ignore",
-category=ConvergenceWarning
+    "ignore",
+    category=ConvergenceWarning
 )
+
 
 print("Running model.py")
 
+
 # =========================================================
-
 # COMMENT VALIDATION
-
 # =========================================================
 
 def is_valid_comment(c: str) -> bool:
-
 
     if c is None:
         return False
@@ -77,21 +76,18 @@ def is_valid_comment(c: str) -> bool:
 
 
 # =========================================================
-
 # SERVICE MODEL
-
 # =========================================================
 
 class ServiceModel:
-
 
     def __init__(self, config=None):
 
         self.config = config or {}
 
-        # ---------------------------------------------
+        # =====================================================
         # FINAL RATING MODEL
-        # ---------------------------------------------
+        # =====================================================
 
         self.best_model = None
         self.best_model_name = None
@@ -99,15 +95,21 @@ class ServiceModel:
         self.models = {}
         self.results_df = None
 
-        # ---------------------------------------------
+        # =====================================================
         # REFERENCE DATA
-        # ---------------------------------------------
+        # =====================================================
 
         self.df_reference = None
 
-        # ---------------------------------------------
+        # =====================================================
+        # CUSTOMER EMAIL HISTORY
+        # =====================================================
+
+        self.customer_email_index = {}
+
+        # =====================================================
         # COMMENT MODEL
-        # ---------------------------------------------
+        # =====================================================
 
         self.comment_df = None
         self.comment_index = {}
@@ -115,9 +117,9 @@ class ServiceModel:
         self.comment_tfidf = None
         self.comment_svd = None
 
-        # ---------------------------------------------
+        # =====================================================
         # RESERVATION STATUS MODEL
-        # ---------------------------------------------
+        # =====================================================
 
         self.status_model = None
         self.status_preprocess = None
@@ -126,33 +128,35 @@ class ServiceModel:
         self.status_numeric_features = []
         self.status_categorical_features = []
 
-        # =================================================
-        # CORRECT RESERVATION STATUS MAPPING
-        #
-        # Feature Engineering mapping:
+        # =====================================================
+        # RESERVATION STATUS MAPPING
         #
         # 0 -> canceled
         # 1 -> no-show
         # 2 -> check-out
-        #
-        # DO NOT CHANGE THIS MAPPING.
-        # =================================================
+        # =====================================================
 
         self.status_class_mapping = {
 
             0: "canceled",
-
             1: "no-show",
-
             2: "check-out"
 
         }
 
-        # ---------------------------------------------
+        # =====================================================
         # RATING FEATURES
-        # ---------------------------------------------
+        # =====================================================
 
         self.rating_features = []
+
+        # =====================================================
+        # RATING NUMERIC FEATURES
+        # =====================================================
+
+        self.rating_numeric_features = []
+
+        self.rating_categorical_features = []
 
 
     # =========================================================
@@ -169,7 +173,6 @@ class ServiceModel:
         train_df = train_df.copy()
         val_df = val_df.copy()
         test_df = test_df.copy()
-
 
         # =====================================================
         # ENSURE COMMENT
@@ -190,9 +193,37 @@ class ServiceModel:
                 .astype(str)
             )
 
+        # =====================================================
+        # ENSURE CLIENT EMAIL
+        # =====================================================
+
+        for data in [
+            train_df,
+            val_df,
+            test_df
+        ]:
+
+            if "client_email" not in data.columns:
+                data["client_email"] = ""
+
+            data["client_email"] = (
+                data["client_email"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+                .str.lower()
+            )
 
         # =====================================================
         # RATING FEATURES
+        #
+        # HIGH PRIORITY:
+        #
+        # is_top_bad_client
+        # client_bad_rate
+        # bad_client_score
+        #
+        # Revenue features remain training features.
         # =====================================================
 
         rating_features = [
@@ -210,29 +241,31 @@ class ServiceModel:
             "days_in_waiting_list_group",
             "guest_group",
             "client_segment",
+
+            # HIGH PRIORITY CUSTOMER RISK
             "is_top_bad_client",
-            "client_bad_rate"
+            "client_bad_rate",
+            "bad_client_score",
+
+            "reservation_status",
+            "is_canceled",
+
+            # TRAINING FEATURES
+            "revenue_cancellation_exposure",
+            "revenue_at_risk",
+            "total_nights_group"
 
         ]
 
         self.rating_features = rating_features.copy()
 
-
         # =====================================================
         # STATUS FEATURES
         #
-        # TARGET:
-        #
-        # reservation_status
-        #
-        # IMPORTANT:
-        #
         # reservation_status is NOT included.
+        # is_canceled is NOT included.
         #
-        # is_canceled is also NOT included.
-        #
-        # The status model must predict reservation status
-        # independently from the explicit answer.
+        # Revenue features remain training features.
         # =====================================================
 
         status_features = [
@@ -250,17 +283,34 @@ class ServiceModel:
             "days_in_waiting_list_group",
             "guest_group",
             "client_segment",
+
+            # CUSTOMER RISK
             "is_top_bad_client",
-            "client_bad_rate"
+            "client_bad_rate",
+
+            # TRAINING FEATURES
+            "revenue_cancellation_exposure",
+            "revenue_at_risk",
+            "total_nights_group"
 
         ]
 
         self.status_features = status_features.copy()
 
-
         # =====================================================
         # ENSURE FEATURES EXIST
         # =====================================================
+
+        numeric_defaults = [
+
+            "is_top_bad_client",
+            "client_bad_rate",
+            "bad_client_score",
+            "is_canceled",
+            "revenue_cancellation_exposure",
+            "revenue_at_risk"
+
+        ]
 
         for data in [
             train_df,
@@ -272,34 +322,25 @@ class ServiceModel:
 
                 if col not in data.columns:
 
-                    if col in [
-                        "is_top_bad_client",
-                        "client_bad_rate",
-                        "is_canceled"
-                    ]:
+                    if col in numeric_defaults:
 
-                        data[col] = 0
+                        data[col] = 0.0
 
                     else:
 
                         data[col] = "unknown"
-
 
             for col in status_features:
 
                 if col not in data.columns:
 
-                    if col in [
-                        "is_top_bad_client",
-                        "client_bad_rate"
-                    ]:
+                    if col in numeric_defaults:
 
-                        data[col] = 0
+                        data[col] = 0.0
 
                     else:
 
                         data[col] = "unknown"
-
 
         # =====================================================
         # NORMALISE NUMERIC FEATURES
@@ -309,10 +350,12 @@ class ServiceModel:
 
             "is_top_bad_client",
             "client_bad_rate",
-            "is_canceled"
+            "bad_client_score",
+            "is_canceled",
+            "revenue_cancellation_exposure",
+            "revenue_at_risk"
 
         ]
-
 
         for data in [
             train_df,
@@ -327,7 +370,6 @@ class ServiceModel:
                     errors="coerce"
                 )
 
-
         # =====================================================
         # CLIENT BAD RATE
         # =====================================================
@@ -337,12 +379,9 @@ class ServiceModel:
             .median()
         )
 
-        if pd.isna(
-            client_bad_rate_median
-        ):
+        if pd.isna(client_bad_rate_median):
 
             client_bad_rate_median = 0.0
-
 
         for data in [
             train_df,
@@ -352,12 +391,52 @@ class ServiceModel:
 
             data["client_bad_rate"] = (
                 data["client_bad_rate"]
-                .fillna(
-                    client_bad_rate_median
-                )
+                .fillna(client_bad_rate_median)
                 .clip(0, 1)
             )
 
+        # =====================================================
+        # IS TOP BAD CLIENT
+        # =====================================================
+
+        for data in [
+            train_df,
+            val_df,
+            test_df
+        ]:
+
+            data["is_top_bad_client"] = (
+                data["is_top_bad_client"]
+                .fillna(0)
+                .clip(0, 1)
+            )
+
+        # =====================================================
+        # BAD CLIENT SCORE
+        #
+        # is_top_bad_client has 70% weight.
+        # client_bad_rate has 30% weight.
+        #
+        # This makes the explicit bad-client flag stronger.
+        # =====================================================
+
+        for data in [
+            train_df,
+            val_df,
+            test_df
+        ]:
+
+            data["bad_client_score"] = (
+
+                0.70 *
+                data["is_top_bad_client"]
+
+                +
+
+                0.30 *
+                data["client_bad_rate"]
+
+            ).clip(0, 1)
 
         # =====================================================
         # NORMALISE IS CANCELED
@@ -375,6 +454,27 @@ class ServiceModel:
                 .clip(0, 1)
             )
 
+        # =====================================================
+        # NORMALISE REVENUE FEATURES
+        # =====================================================
+
+        for data in [
+            train_df,
+            val_df,
+            test_df
+        ]:
+
+            data["revenue_cancellation_exposure"] = (
+                data["revenue_cancellation_exposure"]
+                .fillna(0.0)
+                .clip(lower=0)
+            )
+
+            data["revenue_at_risk"] = (
+                data["revenue_at_risk"]
+                .fillna(0.0)
+                .clip(lower=0)
+            )
 
         # =====================================================
         # COMMENT TOPIC LEARNING
@@ -385,24 +485,20 @@ class ServiceModel:
         print("COMMENT TOPIC LEARNING")
         print("==============================")
 
-
         self.comment_tfidf = TfidfVectorizer(
             max_features=5000,
             ngram_range=(1, 2),
             min_df=3
         )
 
-
         self.comment_svd = TruncatedSVD(
             n_components=30,
             random_state=42
         )
 
-
         print(
             "Fitting comment TF-IDF on training data..."
         )
-
 
         train_comment_tfidf = (
             self.comment_tfidf.fit_transform(
@@ -410,11 +506,9 @@ class ServiceModel:
             )
         )
 
-
         print(
             "Fitting comment SVD on training data..."
         )
-
 
         train_comment_features_array = (
             self.comment_svd.fit_transform(
@@ -422,13 +516,11 @@ class ServiceModel:
             )
         )
 
-
         val_comment_tfidf = (
             self.comment_tfidf.transform(
                 val_df["comment"]
             )
         )
-
 
         val_comment_features_array = (
             self.comment_svd.transform(
@@ -436,20 +528,17 @@ class ServiceModel:
             )
         )
 
-
         test_comment_tfidf = (
             self.comment_tfidf.transform(
                 test_df["comment"]
             )
         )
 
-
         test_comment_features_array = (
             self.comment_svd.transform(
                 test_comment_tfidf
             )
         )
-
 
         comment_columns = [
 
@@ -461,39 +550,23 @@ class ServiceModel:
 
         ]
 
-
         train_comment_features = pd.DataFrame(
-
             train_comment_features_array,
-
             columns=comment_columns,
-
             index=train_df.index
-
         )
-
 
         val_comment_features = pd.DataFrame(
-
             val_comment_features_array,
-
             columns=comment_columns,
-
             index=val_df.index
-
         )
-
 
         test_comment_features = pd.DataFrame(
-
             test_comment_features_array,
-
             columns=comment_columns,
-
             index=test_df.index
-
         )
-
 
         train_df = pd.concat(
             [
@@ -503,7 +576,6 @@ class ServiceModel:
             axis=1
         )
 
-
         val_df = pd.concat(
             [
                 val_df,
@@ -511,7 +583,6 @@ class ServiceModel:
             ],
             axis=1
         )
-
 
         test_df = pd.concat(
             [
@@ -521,12 +592,10 @@ class ServiceModel:
             axis=1
         )
 
-
         rating_features_with_comments = (
             rating_features +
             comment_columns
         )
-
 
         # =====================================================
         # FINAL RATING TARGET
@@ -541,7 +610,6 @@ class ServiceModel:
             .astype(int)
         )
 
-
         y_val = (
             pd.to_numeric(
                 val_df["final_rating"],
@@ -550,7 +618,6 @@ class ServiceModel:
             .fillna(0)
             .astype(int)
         )
-
 
         y_test = (
             pd.to_numeric(
@@ -561,15 +628,12 @@ class ServiceModel:
             .astype(int)
         )
 
-
         # =====================================================
         # RESERVATION STATUS TARGET
         #
-        # CORRECT:
-        #
-        # 0 -> canceled
-        # 1 -> no-show
-        # 2 -> check-out
+        # 0 = canceled
+        # 1 = no-show
+        # 2 = check-out
         # =====================================================
 
         def normalise_status_target(series):
@@ -581,23 +645,17 @@ class ServiceModel:
 
             return numeric.astype("Int64")
 
-
         y_status_train = normalise_status_target(
             train_df["reservation_status"]
         )
-
 
         y_status_val = normalise_status_target(
             val_df["reservation_status"]
         )
 
-
         y_status_test = normalise_status_target(
             test_df["reservation_status"]
         )
-
-
-        # Remove invalid status rows from status training.
 
         train_status_mask = (
             y_status_train.isin([0, 1, 2])
@@ -611,14 +669,12 @@ class ServiceModel:
             y_status_test.isin([0, 1, 2])
         )
 
-
         y_status_train = (
             y_status_train[
                 train_status_mask
             ]
             .astype(int)
         )
-
 
         y_status_val = (
             y_status_val[
@@ -627,14 +683,12 @@ class ServiceModel:
             .astype(int)
         )
 
-
         y_status_test = (
             y_status_test[
                 test_status_mask
             ]
             .astype(int)
         )
-
 
         # =====================================================
         # RATING INPUT
@@ -645,18 +699,15 @@ class ServiceModel:
             rating_features_with_comments
         ]
 
-
         X_val = val_df[
             ["comment"] +
             rating_features_with_comments
         ]
 
-
         X_test = test_df[
             ["comment"] +
             rating_features_with_comments
         ]
-
 
         # =====================================================
         # CLASS WEIGHTS
@@ -666,13 +717,11 @@ class ServiceModel:
             y_train
         )
 
-
         class_weights = compute_class_weight(
             class_weight="balanced",
             classes=classes,
             y=y_train
         )
-
 
         class_weight_dict = dict(
             zip(
@@ -680,7 +729,6 @@ class ServiceModel:
                 class_weights
             )
         )
-
 
         # =====================================================
         # TEXT PIPELINE
@@ -704,10 +752,30 @@ class ServiceModel:
 
         ])
 
-
         # =====================================================
         # RATING PREPROCESSOR
         # =====================================================
+
+        self.rating_numeric_features = [
+
+            "is_top_bad_client",
+            "client_bad_rate",
+            "bad_client_score",
+            "is_canceled",
+            "revenue_cancellation_exposure",
+            "revenue_at_risk"
+
+        ]
+
+        self.rating_categorical_features = [
+
+            c
+
+            for c in rating_features_with_comments
+
+            if c not in self.rating_numeric_features
+
+        ]
 
         rating_preprocess = ColumnTransformer([
 
@@ -722,33 +790,16 @@ class ServiceModel:
                 OneHotEncoder(
                     handle_unknown="ignore"
                 ),
-                [
-                    c
-                    for c in rating_features_with_comments
-                    if c not in [
-                        "is_top_bad_client",
-                        "client_bad_rate",
-                        "is_canceled"
-                    ]
-                ]
+                self.rating_categorical_features
             ),
 
             (
                 "num",
                 "passthrough",
-                [
-                    c
-                    for c in rating_features_with_comments
-                    if c in [
-                        "is_top_bad_client",
-                        "client_bad_rate",
-                        "is_canceled"
-                    ]
-                ]
+                self.rating_numeric_features
             )
 
         ])
-
 
         # =====================================================
         # FINAL RATING MODELS
@@ -776,7 +827,6 @@ class ServiceModel:
 
             ]),
 
-
             "Linear SVC": Pipeline([
 
                 (
@@ -795,7 +845,6 @@ class ServiceModel:
                 )
 
             ]),
-
 
             "LightGBM": Pipeline([
 
@@ -820,9 +869,7 @@ class ServiceModel:
 
         }
 
-
         self.models = models
-
 
         # =====================================================
         # TRAIN RATING MODELS
@@ -832,7 +879,6 @@ class ServiceModel:
         print("==============================")
         print("FINAL RATING MODEL TRAINING")
         print("==============================")
-
 
         for name, model in models.items():
 
@@ -849,17 +895,8 @@ class ServiceModel:
                 f"{name} completed."
             )
 
-
         # =====================================================
         # RESERVATION STATUS MODEL
-        #
-        # CORRECT TARGET:
-        #
-        # 0 = canceled
-        # 1 = no-show
-        # 2 = check-out
-        #
-        # is_canceled is deliberately NOT an input.
         # =====================================================
 
         print()
@@ -867,33 +904,32 @@ class ServiceModel:
         print("RESERVATION STATUS TRAINING")
         print("==============================")
 
-
         status_numeric_features = [
 
             "is_top_bad_client",
-            "client_bad_rate"
+            "client_bad_rate",
+            "revenue_cancellation_exposure",
+            "revenue_at_risk"
 
         ]
-
 
         status_categorical_features = [
 
             c
+
             for c in status_features
+
             if c not in status_numeric_features
 
         ]
-
 
         self.status_numeric_features = (
             status_numeric_features
         )
 
-
         self.status_categorical_features = (
             status_categorical_features
         )
-
 
         status_preprocess = ColumnTransformer([
 
@@ -919,26 +955,20 @@ class ServiceModel:
 
         ])
 
-
         X_train_status_all = train_df[
             ["comment"] +
             status_features
         ]
-
 
         X_val_status_all = val_df[
             ["comment"] +
             status_features
         ]
 
-
         X_test_status_all = test_df[
             ["comment"] +
             status_features
         ]
-
-
-        # Only valid 0/1/2 status records are used.
 
         X_train_status = (
             X_train_status_all.loc[
@@ -946,13 +976,11 @@ class ServiceModel:
             ]
         )
 
-
         X_val_status = (
             X_val_status_all.loc[
                 val_status_mask
             ]
         )
-
 
         X_test_status = (
             X_test_status_all.loc[
@@ -960,13 +988,11 @@ class ServiceModel:
             ]
         )
 
-
         X_train_status_processed = (
             status_preprocess.fit_transform(
                 X_train_status
             )
         )
-
 
         X_val_status_processed = (
             status_preprocess.transform(
@@ -974,52 +1000,38 @@ class ServiceModel:
             )
         )
 
-
         X_test_status_processed = (
             status_preprocess.transform(
                 X_test_status
             )
         )
 
-
         self.status_model = LogisticRegression(
 
             solver="saga",
-
             max_iter=300,
-
             tol=1e-2,
-
             class_weight="balanced",
-
             n_jobs=-1
 
         )
-
 
         print(
             "Training Reservation Status Model..."
         )
 
-
         self.status_model.fit(
-
             X_train_status_processed,
-
             y_status_train
-
         )
-
 
         self.status_preprocess = (
             status_preprocess
         )
 
-
         print(
             "Reservation Status Model completed."
         )
-
 
         # =====================================================
         # STATUS EVALUATION
@@ -1031,12 +1043,10 @@ class ServiceModel:
             )
         )
 
-
         print()
         print("==============================")
         print("RESERVATION STATUS EVALUATION")
         print("==============================")
-
 
         print(
             classification_report(
@@ -1045,7 +1055,6 @@ class ServiceModel:
                 zero_division=0
             )
         )
-
 
         # =====================================================
         # VALIDATION
@@ -1056,9 +1065,7 @@ class ServiceModel:
         print("FINAL RATING VALIDATION")
         print("==============================")
 
-
         validation_results = []
-
 
         for name, model in models.items():
 
@@ -1066,18 +1073,15 @@ class ServiceModel:
                 X_val
             )
 
-
             f1 = f1_score(
                 y_val,
                 preds,
                 average="weighted"
             )
 
-
             try:
 
                 clf = model.named_steps["clf"]
-
 
                 if hasattr(
                     clf,
@@ -1087,7 +1091,6 @@ class ServiceModel:
                     probs = model.predict_proba(
                         X_val
                     )
-
 
                 else:
 
@@ -1099,7 +1102,6 @@ class ServiceModel:
                         scores
                     )
 
-
                     if scores.ndim == 1:
 
                         scores = np.column_stack(
@@ -1108,7 +1110,6 @@ class ServiceModel:
                                 scores
                             ]
                         )
-
 
                     exp = np.exp(
                         scores -
@@ -1119,7 +1120,6 @@ class ServiceModel:
                         )
                     )
 
-
                     probs = (
                         exp /
                         exp.sum(
@@ -1128,14 +1128,12 @@ class ServiceModel:
                         )
                     )
 
-
                 roc = roc_auc_score(
                     y_val,
                     probs,
                     multi_class="ovr",
                     average="weighted"
                 )
-
 
             except Exception as e:
 
@@ -1146,22 +1144,17 @@ class ServiceModel:
 
                 roc = 0.0
 
-
             validation_results.append({
 
                 "model": name,
-
                 "f1": f1,
-
                 "roc": roc
 
             })
 
-
         validation_df = pd.DataFrame(
             validation_results
         )
-
 
         validation_df["final_score"] = (
 
@@ -1175,7 +1168,6 @@ class ServiceModel:
 
         )
 
-
         validation_df = (
             validation_df
             .sort_values(
@@ -1183,7 +1175,6 @@ class ServiceModel:
                 ascending=False
             )
         )
-
 
         print(
             validation_df[
@@ -1198,7 +1189,6 @@ class ServiceModel:
             )
         )
 
-
         # =====================================================
         # BEST RATING MODEL
         # =====================================================
@@ -1207,19 +1197,16 @@ class ServiceModel:
             validation_df.iloc[0]["model"]
         )
 
-
         self.best_model = (
             self.models[
                 self.best_model_name
             ]
         )
 
-
         print(
             "\nBEST RATING MODEL SELECTED:",
             self.best_model_name
         )
-
 
         # =====================================================
         # REFERENCE DATA
@@ -1232,8 +1219,13 @@ class ServiceModel:
                 test_df
             ],
             axis=0
-        )
+        ).copy()
 
+        # =====================================================
+        # BUILD CUSTOMER EMAIL INDEX
+        # =====================================================
+
+        self._build_customer_email_index()
 
         # =====================================================
         # COMMENT DATA
@@ -1242,7 +1234,6 @@ class ServiceModel:
         reference_df = (
             self.df_reference.copy()
         )
-
 
         self.comment_df = reference_df[[
 
@@ -1263,13 +1254,11 @@ class ServiceModel:
 
         ]].copy()
 
-
         # =====================================================
         # COMMENT INDEX
         # =====================================================
 
         self.comment_index = {}
-
 
         fields = [
 
@@ -1288,7 +1277,6 @@ class ServiceModel:
 
         ]
 
-
         for rating, df_r in reference_df.groupby(
             "final_rating"
         ):
@@ -1296,7 +1284,6 @@ class ServiceModel:
             rating_key = str(
                 rating
             )
-
 
             self.comment_index[
                 rating_key
@@ -1312,12 +1299,10 @@ class ServiceModel:
 
             }
 
-
             for field in fields:
 
                 if field not in df_r.columns:
                     continue
-
 
                 self.comment_index[
                     rating_key
@@ -1332,11 +1317,9 @@ class ServiceModel:
 
                 )
 
-
         print(
             "FAST COMMENT INDEX READY"
         )
-
 
         # =====================================================
         # SAVE
@@ -1346,8 +1329,149 @@ class ServiceModel:
             reference_df
         )
 
-
         return reference_df
+
+
+    # =========================================================
+    # BUILD CUSTOMER EMAIL INDEX
+    # =========================================================
+
+    def _build_customer_email_index(self):
+
+        self.customer_email_index = {}
+
+        if self.df_reference is None:
+            return
+
+        if "client_email" not in self.df_reference.columns:
+            return
+
+        reference = self.df_reference.copy()
+
+        reference["client_email"] = (
+            reference["client_email"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        for email, group in reference.groupby(
+            "client_email"
+        ):
+
+            email = str(email).strip().lower()
+
+            if not email:
+                continue
+
+            history_count = len(group)
+
+            bad_rate = 0.0
+
+            if "is_top_bad_client" in group.columns:
+
+                bad_flags = pd.to_numeric(
+                    group["is_top_bad_client"],
+                    errors="coerce"
+                ).fillna(0)
+
+                bad_rate = float(
+                    bad_flags.mean()
+                )
+
+            historical_client_bad_rate = np.nan
+
+            if "client_bad_rate" in group.columns:
+
+                rates = pd.to_numeric(
+                    group["client_bad_rate"],
+                    errors="coerce"
+                ).dropna()
+
+                if len(rates) > 0:
+
+                    historical_client_bad_rate = float(
+                        rates.mean()
+                    )
+
+            avg_rating = np.nan
+
+            if "final_rating" in group.columns:
+
+                ratings = pd.to_numeric(
+                    group["final_rating"],
+                    errors="coerce"
+                ).dropna()
+
+                if len(ratings) > 0:
+
+                    avg_rating = float(
+                        ratings.mean()
+                    )
+
+            cancel_rate = np.nan
+
+            if "is_canceled" in group.columns:
+
+                cancellations = pd.to_numeric(
+                    group["is_canceled"],
+                    errors="coerce"
+                ).fillna(0)
+
+                cancel_rate = float(
+                    cancellations.mean()
+                )
+
+            self.customer_email_index[email] = {
+
+                "history_count":
+                    history_count,
+
+                "bad_client_rate":
+                    bad_rate,
+
+                "historical_client_bad_rate":
+                    historical_client_bad_rate,
+
+                "avg_rating":
+                    avg_rating,
+
+                "cancel_rate":
+                    cancel_rate
+
+            }
+
+        print(
+            f"[INFO] Customer email index ready: "
+            f"{len(self.customer_email_index)} customers"
+        )
+
+
+    # =========================================================
+    # CUSTOMER EMAIL LOOKUP
+    # =========================================================
+
+    def _lookup_customer_email(
+        self,
+        email
+    ):
+
+        if email is None:
+            return None
+
+        email = (
+            str(email)
+            .strip()
+            .lower()
+        )
+
+        if not email:
+            return None
+
+        return self.customer_email_index.get(
+            email
+        )
 
 
     # =========================================================
@@ -1364,12 +1488,10 @@ class ServiceModel:
             "trained"
         )
 
-
         os.makedirs(
             trained_dir,
             exist_ok=True
         )
-
 
         train_path = self.config.get(
             "train_data",
@@ -1379,18 +1501,15 @@ class ServiceModel:
             )
         )
 
-
         df.to_parquet(
             train_path,
             index=False
         )
 
-
         print(
             f"[INFO] Training data saved: "
             f"{train_path}"
         )
-
 
         model_path = self.config.get(
             "service_model",
@@ -1400,18 +1519,15 @@ class ServiceModel:
             )
         )
 
-
         joblib.dump(
             self,
             model_path
         )
 
-
         print(
             f"[INFO] Service model saved: "
             f"{model_path}"
         )
-
 
         metadata_path = self.config.get(
             "training_metadata",
@@ -1421,12 +1537,7 @@ class ServiceModel:
             )
         )
 
-
-        import json
-
-
         metadata = {}
-
 
         if os.path.exists(
             metadata_path
@@ -1440,7 +1551,6 @@ class ServiceModel:
                 metadata = json.load(
                     f
                 )
-
 
         metadata.update({
 
@@ -1458,7 +1568,6 @@ class ServiceModel:
 
         })
 
-
         with open(
             metadata_path,
             "w"
@@ -1469,7 +1578,6 @@ class ServiceModel:
                 f,
                 indent=4
             )
-
 
         print(
             f"[INFO] Metadata updated: "
@@ -1508,14 +1616,32 @@ class ServiceModel:
             [x]
         )
 
+        # =====================================================
+        # CLIENT EMAIL
+        #
+        # Email is an identity field.
+        # It is NOT directly one-hot encoded.
+        # =====================================================
 
-        # ---------------------------------------------
-        # Text
-        # ---------------------------------------------
+        if "client_email" not in input_df.columns:
+
+            input_df["client_email"] = ""
+
+        input_df["client_email"] = (
+            input_df["client_email"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        # =====================================================
+        # COMMENT
+        # =====================================================
 
         if "comment" not in input_df.columns:
-            input_df["comment"] = ""
 
+            input_df["comment"] = ""
 
         input_df["comment"] = (
             input_df["comment"]
@@ -1523,10 +1649,9 @@ class ServiceModel:
             .astype(str)
         )
 
-
-        # ---------------------------------------------
-        # Categorical
-        # ---------------------------------------------
+        # =====================================================
+        # CATEGORICAL
+        # =====================================================
 
         categorical_features = [
 
@@ -1547,12 +1672,11 @@ class ServiceModel:
 
         ]
 
-
         for col in categorical_features:
 
             if col not in input_df.columns:
-                input_df[col] = "unknown"
 
+                input_df[col] = "unknown"
 
             input_df[col] = (
                 input_df[col]
@@ -1561,22 +1685,21 @@ class ServiceModel:
                 .str.strip()
             )
 
-
-        # ---------------------------------------------
-        # Numeric
-        # ---------------------------------------------
+        # =====================================================
+        # NUMERIC FEATURES
+        # =====================================================
 
         if "is_top_bad_client" not in input_df.columns:
+
             input_df["is_top_bad_client"] = 0
 
-
         if "is_canceled" not in input_df.columns:
+
             input_df["is_canceled"] = 0
 
-
         if "client_bad_rate" not in input_df.columns:
-            input_df["client_bad_rate"] = np.nan
 
+            input_df["client_bad_rate"] = np.nan
 
         input_df["is_top_bad_client"] = (
 
@@ -1584,13 +1707,10 @@ class ServiceModel:
                 input_df["is_top_bad_client"],
                 errors="coerce"
             )
-
             .fillna(0)
-
             .clip(0, 1)
 
         )
-
 
         input_df["is_canceled"] = (
 
@@ -1598,17 +1718,67 @@ class ServiceModel:
                 input_df["is_canceled"],
                 errors="coerce"
             )
-
             .fillna(0)
-
             .clip(0, 1)
 
         )
 
+        # =====================================================
+        # OPTIONAL REVENUE / STAY FEATURES
+        #
+        # These are required by the trained model structure,
+        # but NOT required from predict_page.py.
+        # =====================================================
 
-        # ---------------------------------------------
-        # Client bad rate
-        # ---------------------------------------------
+        if "revenue_cancellation_exposure" not in input_df.columns:
+
+            input_df[
+                "revenue_cancellation_exposure"
+            ] = 0.0
+
+        if "revenue_at_risk" not in input_df.columns:
+
+            input_df[
+                "revenue_at_risk"
+            ] = 0.0
+
+        if "total_nights_group" not in input_df.columns:
+
+            input_df[
+                "total_nights_group"
+            ] = "unknown"
+
+        input_df[
+            "revenue_cancellation_exposure"
+        ] = pd.to_numeric(
+            input_df[
+                "revenue_cancellation_exposure"
+            ],
+            errors="coerce"
+        ).fillna(0.0)
+
+        input_df[
+            "revenue_at_risk"
+        ] = pd.to_numeric(
+            input_df[
+                "revenue_at_risk"
+            ],
+            errors="coerce"
+        ).fillna(0.0)
+
+        input_df[
+            "total_nights_group"
+        ] = (
+            input_df[
+                "total_nights_group"
+            ]
+            .fillna("unknown")
+            .astype(str)
+        )
+
+        # =====================================================
+        # CLIENT BAD RATE
+        # =====================================================
 
         client_bad_rate = pd.to_numeric(
 
@@ -1618,8 +1788,9 @@ class ServiceModel:
 
         )
 
-
         if client_bad_rate.isna().all():
+
+            fallback = 0.0
 
             if (
                 self.df_reference is not None
@@ -1638,24 +1809,17 @@ class ServiceModel:
 
                 ).median()
 
-
                 if pd.isna(
                     fallback
                 ):
 
                     fallback = 0.0
 
-            else:
-
-                fallback = 0.0
-
-
             client_bad_rate = (
                 client_bad_rate.fillna(
                     fallback
                 )
             )
-
 
         else:
 
@@ -1663,13 +1827,11 @@ class ServiceModel:
                 client_bad_rate.median()
             )
 
-
             if pd.isna(
                 fallback
             ):
 
                 fallback = 0.0
-
 
             client_bad_rate = (
                 client_bad_rate.fillna(
@@ -1677,11 +1839,144 @@ class ServiceModel:
                 )
             )
 
-
         input_df["client_bad_rate"] = (
             client_bad_rate.clip(0, 1)
         )
 
+        # =====================================================
+        # EMAIL CUSTOMER HISTORY
+        #
+        # Email has priority as the customer identity.
+        #
+        # We use the historical email record to strengthen
+        # the bad-client signal.
+        # =====================================================
+
+        email = (
+            input_df[
+                "client_email"
+            ].iloc[0]
+        )
+
+        email_history = (
+            self._lookup_customer_email(
+                email
+            )
+        )
+
+        input_df["email_known"] = 0.0
+
+        input_df["email_history_count"] = 0.0
+
+        input_df["email_history_bad_rate"] = 0.0
+
+        input_df["email_history_avg_rating"] = np.nan
+
+        input_df["email_history_cancel_rate"] = np.nan
+
+        if email_history is not None:
+
+            input_df["email_known"] = 1.0
+
+            input_df["email_history_count"] = float(
+                email_history.get(
+                    "history_count",
+                    0
+                )
+            )
+
+            input_df["email_history_bad_rate"] = float(
+                email_history.get(
+                    "bad_client_rate",
+                    0.0
+                )
+            )
+
+            input_df["email_history_avg_rating"] = (
+                email_history.get(
+                    "avg_rating",
+                    np.nan
+                )
+            )
+
+            input_df["email_history_cancel_rate"] = (
+                email_history.get(
+                    "cancel_rate",
+                    np.nan
+                )
+            )
+
+        # =====================================================
+        # EMAIL-BASED BAD CLIENT PRIORITY
+        #
+        # If the email belongs to a historically bad client,
+        # strengthen the explicit bad-client signals.
+        #
+        # IMPORTANT:
+        # The email does not directly become a rating.
+        # It only provides customer-history evidence.
+        # =====================================================
+
+        if email_history is not None:
+
+            email_bad_rate = float(
+                email_history.get(
+                    "bad_client_rate",
+                    0.0
+                )
+            )
+
+            historical_bad_rate = email_history.get(
+                "historical_client_bad_rate",
+                np.nan
+            )
+
+            if not pd.isna(
+                historical_bad_rate
+            ):
+
+                email_bad_rate = max(
+                    email_bad_rate,
+                    float(historical_bad_rate)
+                )
+
+            if email_bad_rate >= 0.80:
+
+                input_df[
+                    "client_bad_rate"
+                ] = np.maximum(
+                    input_df[
+                        "client_bad_rate"
+                    ],
+                    email_bad_rate
+                )
+
+            if email_bad_rate >= 1.0:
+
+                input_df[
+                    "is_top_bad_client"
+                ] = np.maximum(
+                    input_df[
+                        "is_top_bad_client"
+                    ],
+                    1.0
+                )
+
+        # =====================================================
+        # BAD CLIENT SCORE
+        # =====================================================
+
+        input_df["bad_client_score"] = (
+
+            0.70 *
+            input_df["is_top_bad_client"]
+
+            +
+
+            0.30 *
+            input_df["client_bad_rate"]
+
+        ).clip(0, 1)
 
         # =====================================================
         # NORMALISE RESERVATION STATUS
@@ -1695,14 +1990,12 @@ class ServiceModel:
 
         ).strip().lower()
 
-
         if reservation_status in [
             "cancelled",
             "canceled"
         ]:
 
             reservation_status = "canceled"
-
 
         elif reservation_status in [
             "checkout",
@@ -1712,7 +2005,6 @@ class ServiceModel:
 
             reservation_status = "check-out"
 
-
         elif reservation_status in [
             "noshow",
             "no show",
@@ -1720,7 +2012,6 @@ class ServiceModel:
         ]:
 
             reservation_status = "no-show"
-
 
         elif reservation_status in [
             "",
@@ -1732,20 +2023,12 @@ class ServiceModel:
 
             reservation_status = "unknown"
 
-
         input_df[
             "reservation_status"
         ] = reservation_status
 
-
         # =====================================================
         # KEEP EXPLICIT CANCELLATION SIGNAL CONSISTENT
-        #
-        # If reservation_status is explicitly canceled,
-        # is_canceled must be 1.
-        #
-        # If reservation_status is no-show or check-out,
-        # is_canceled must be 0.
         # =====================================================
 
         if reservation_status == "canceled":
@@ -1753,7 +2036,6 @@ class ServiceModel:
             input_df[
                 "is_canceled"
             ] = 1.0
-
 
         elif reservation_status in [
             "no-show",
@@ -1764,8 +2046,196 @@ class ServiceModel:
                 "is_canceled"
             ] = 0.0
 
-
         return input_df
+
+
+    # =========================================================
+    # APPLY CUSTOMER PRIORITY TO RATING
+    # =========================================================
+
+    def _apply_customer_rating_priority(
+        self,
+        pred_rating,
+        input_df
+    ):
+
+        pred_rating = int(
+            pred_rating
+        )
+
+        email = str(
+            input_df[
+                "client_email"
+            ].iloc[0]
+        ).strip().lower()
+
+        is_top_bad_client = float(
+            input_df[
+                "is_top_bad_client"
+            ].iloc[0]
+        )
+
+        client_bad_rate = float(
+            input_df[
+                "client_bad_rate"
+            ].iloc[0]
+        )
+
+        bad_client_score = float(
+            input_df[
+                "bad_client_score"
+            ].iloc[0]
+        )
+
+        email_known = float(
+            input_df[
+                "email_known"
+            ].iloc[0]
+        )
+
+        email_bad_rate = float(
+            input_df[
+                "email_history_bad_rate"
+            ].iloc[0]
+        )
+
+        # =====================================================
+        # DEBUG
+        # =====================================================
+
+        print()
+        print("==============================")
+        print("CUSTOMER PRIORITY")
+        print("==============================")
+
+        print(
+            "Client Email:",
+            email
+        )
+
+        print(
+            "Email Known:",
+            email_known
+        )
+
+        print(
+            "Email Historical Bad Rate:",
+            email_bad_rate
+        )
+
+        print(
+            "is_top_bad_client:",
+            is_top_bad_client
+        )
+
+        print(
+            "client_bad_rate:",
+            client_bad_rate
+        )
+
+        print(
+            "bad_client_score:",
+            bad_client_score
+        )
+
+        print(
+            "ML Rating Before Customer Priority:",
+            pred_rating
+        )
+
+        # =====================================================
+        # PRIORITY 1
+        #
+        # EMAIL + HISTORICAL BAD CLIENT
+        #
+        # A known email with a very high historical bad rate
+        # receives the strongest customer-risk treatment.
+        # =====================================================
+
+        if (
+            email_known >= 1.0
+            and
+            email_bad_rate >= 0.80
+        ):
+
+            pred_rating = min(
+                pred_rating,
+                3
+            )
+
+            print(
+                "[CUSTOMER RULE] Known high-risk email "
+                "-> maximum rating 3"
+            )
+
+        # =====================================================
+        # PRIORITY 2
+        #
+        # EXPLICIT TOP BAD CLIENT
+        # =====================================================
+
+        elif is_top_bad_client >= 1.0:
+
+            pred_rating = min(
+                pred_rating,
+                3
+            )
+
+            print(
+                "[CUSTOMER RULE] is_top_bad_client=1 "
+                "-> maximum rating 3"
+            )
+
+        # =====================================================
+        # PRIORITY 3
+        #
+        # HIGH CLIENT BAD RATE
+        # =====================================================
+
+        elif client_bad_rate >= 0.80:
+
+            pred_rating = min(
+                pred_rating,
+                4
+            )
+
+            print(
+                "[CUSTOMER RULE] client_bad_rate>=0.80 "
+                "-> maximum rating 4"
+            )
+
+        # =====================================================
+        # PRIORITY 4
+        #
+        # MODERATE BAD RATE
+        # =====================================================
+
+        elif client_bad_rate >= 0.60:
+
+            pred_rating = min(
+                pred_rating,
+                5
+            )
+
+            print(
+                "[CUSTOMER RULE] client_bad_rate>=0.60 "
+                "-> maximum rating 5"
+            )
+
+        pred_rating = int(
+            np.clip(
+                pred_rating,
+                0,
+                6
+            )
+        )
+
+        print(
+            "Final Rating After Customer Priority:",
+            pred_rating
+        )
+
+        return pred_rating
 
 
     # =========================================================
@@ -1778,13 +2248,12 @@ class ServiceModel:
     ):
 
         # =====================================================
-        # PREPARE UI INPUT
+        # PREPARE INPUT
         # =====================================================
 
         input_df = self._prepare_input(
             x
         )
-
 
         # =====================================================
         # COMMENT TOPIC FEATURES
@@ -1803,20 +2272,17 @@ class ServiceModel:
 
             )
 
-
         comment_tfidf = (
             self.comment_tfidf.transform(
                 input_df["comment"]
             )
         )
 
-
         comment_features_array = (
             self.comment_svd.transform(
                 comment_tfidf
             )
         )
-
 
         comment_columns = [
 
@@ -1828,7 +2294,6 @@ class ServiceModel:
 
         ]
 
-
         comment_features = pd.DataFrame(
 
             comment_features_array,
@@ -1838,7 +2303,6 @@ class ServiceModel:
             index=input_df.index
 
         )
-
 
         input_df = pd.concat(
 
@@ -1850,7 +2314,6 @@ class ServiceModel:
             axis=1
 
         )
-
 
         # =====================================================
         # PART 1
@@ -1865,7 +2328,6 @@ class ServiceModel:
 
         )
 
-
         X_rating = input_df[
 
             ["comment"] +
@@ -1874,8 +2336,11 @@ class ServiceModel:
 
         ]
 
+        # =====================================================
+        # ML RATING
+        # =====================================================
 
-        pred_rating = int(
+        ml_pred_rating = int(
 
             self.best_model.predict(
                 X_rating
@@ -1883,23 +2348,45 @@ class ServiceModel:
 
         )
 
-
-        pred_rating = int(
+        ml_pred_rating = int(
 
             np.clip(
-                pred_rating,
+                ml_pred_rating,
                 0,
                 6
             )
 
         )
 
+        print()
+        print("==============================")
+        print("ML RATING")
+        print("==============================")
+
+        print(
+            "ML Predicted Rating:",
+            ml_pred_rating
+        )
+
+        # =====================================================
+        # CUSTOMER PRIORITY
+        # =====================================================
+
+        pred_rating = (
+            self._apply_customer_rating_priority(
+                ml_pred_rating,
+                input_df
+            )
+        )
+
+        # =====================================================
+        # RATING CLASSIFIER
+        # =====================================================
 
         clf = (
             self.best_model
             .named_steps["clf"]
         )
-
 
         # =====================================================
         # RATING PROBABILITIES
@@ -1919,7 +2406,6 @@ class ServiceModel:
 
             )
 
-
         else:
 
             scores = (
@@ -1931,15 +2417,13 @@ class ServiceModel:
 
             )
 
-
             scores = np.asarray(
                 scores
             )
 
-
             if scores.ndim == 2:
-                scores = scores[0]
 
+                scores = scores[0]
 
             exp = np.exp(
 
@@ -1948,7 +2432,6 @@ class ServiceModel:
 
             )
 
-
             rating_probs = (
 
                 exp /
@@ -1956,11 +2439,9 @@ class ServiceModel:
 
             )
 
-
         rating_class_order = list(
             clf.classes_
         )
-
 
         # =====================================================
         # SLA RISK
@@ -1978,9 +2459,7 @@ class ServiceModel:
 
         }
 
-
         sla_risk = 0.0
-
 
         for i, cls in enumerate(
             rating_class_order
@@ -1992,7 +2471,6 @@ class ServiceModel:
 
                 continue
 
-
             try:
 
                 rating_class = int(
@@ -2002,7 +2480,6 @@ class ServiceModel:
             except Exception:
 
                 continue
-
 
             sla_risk += (
 
@@ -2017,7 +2494,6 @@ class ServiceModel:
 
             )
 
-
         sla_risk_score = round(
 
             sla_risk * 100,
@@ -2025,7 +2501,6 @@ class ServiceModel:
             1
 
         )
-
 
         # =====================================================
         # CUSTOMER RISK SCORE
@@ -2039,10 +2514,9 @@ class ServiceModel:
             3: 60,
             4: 40,
             5: 20,
-            6: 10
+            6: 0
 
         }
-
 
         base_risk = rating_risk_map.get(
 
@@ -2051,7 +2525,6 @@ class ServiceModel:
             50
 
         )
-
 
         risk_score = round(
 
@@ -2075,17 +2548,9 @@ class ServiceModel:
 
         )
 
-
         # =====================================================
         # PART 2
         # RESERVATION STATUS PREDICTION
-        #
-        # CORRECT:
-        #
-        # 0 -> CANCELED
-        # 1 -> NO-SHOW
-        # 2 -> CHECK-OUT
-        #
         # =====================================================
 
         status_input = input_df[
@@ -2106,11 +2571,13 @@ class ServiceModel:
                 "guest_group",
                 "client_segment",
                 "is_top_bad_client",
-                "client_bad_rate"
+                "client_bad_rate",
+                "revenue_cancellation_exposure",
+                "revenue_at_risk",
+                "total_nights_group"
             ]
 
         ]
-
 
         # =====================================================
         # TRANSFORM STATUS INPUT
@@ -2123,7 +2590,6 @@ class ServiceModel:
             )
 
         )
-
 
         # =====================================================
         # STATUS PROBABILITIES
@@ -2138,13 +2604,11 @@ class ServiceModel:
 
         )
 
-
         status_classes = (
 
             self.status_model.classes_
 
         )
-
 
         print()
         print(
@@ -2152,34 +2616,22 @@ class ServiceModel:
             list(status_classes)
         )
 
-
         print(
             "STATUS MODEL RAW PROBABILITIES:",
             status_probs
         )
 
-
         # =====================================================
         # MAP STATUS PROBABILITIES
-        #
-        # ABSOLUTELY IMPORTANT:
-        #
-        # 0 -> CANCELED
-        # 1 -> NO-SHOW
-        # 2 -> CHECK-OUT
         # =====================================================
 
         ml_prob_canceled = 0.0
-
         ml_prob_no_show = 0.0
-
         ml_prob_check_out = 0.0
-
 
         for probability, cls in zip(
 
             status_probs,
-
             status_classes
 
         ):
@@ -2194,7 +2646,6 @@ class ServiceModel:
 
                 continue
 
-
             probability = (
 
                 float(probability)
@@ -2205,13 +2656,11 @@ class ServiceModel:
 
             )
 
-
             if status_class == 0:
 
                 ml_prob_canceled = (
                     probability
                 )
-
 
             elif status_class == 1:
 
@@ -2219,13 +2668,11 @@ class ServiceModel:
                     probability
                 )
 
-
             elif status_class == 2:
 
                 ml_prob_check_out = (
                     probability
                 )
-
 
         # =====================================================
         # READ EXPLICIT INPUTS
@@ -2239,7 +2686,6 @@ class ServiceModel:
 
         ).strip().lower()
 
-
         is_canceled_value = float(
 
             input_df[
@@ -2247,7 +2693,6 @@ class ServiceModel:
             ].iloc[0]
 
         )
-
 
         # =====================================================
         # STATUS DEBUG
@@ -2258,96 +2703,61 @@ class ServiceModel:
             "STATUS ML MAPPING:"
         )
 
-
         print(
             "ML Cancellation:",
             ml_prob_canceled
         )
-
 
         print(
             "ML No-Show:",
             ml_prob_no_show
         )
 
-
         print(
             "ML Check-Out:",
             ml_prob_check_out
         )
 
-
         # =====================================================
         # FINAL STATUS DECISION
         #
-        # PRIORITY:
-        #
-        # 1. is_canceled = 1
+        # 1. is_canceled
         # 2. explicit reservation_status
-        # 3. ML prediction
-        #
-        # CORRECT MAPPING:
-        #
-        # canceled -> 100% canceled
-        # no-show  -> 100% no-show
-        # check-out -> 100% check-out
-        #
-        # unknown -> ML probabilities
+        # 3. ML
         # =====================================================
 
         if is_canceled_value >= 1.0:
 
             prob_canceled = 100.0
-
             prob_no_show = 0.0
-
             prob_check_out = 0.0
-
 
         elif reservation_status_input == "canceled":
 
             prob_canceled = 100.0
-
             prob_no_show = 0.0
-
             prob_check_out = 0.0
-
 
         elif reservation_status_input == "no-show":
 
             prob_canceled = 0.0
-
             prob_no_show = 100.0
-
             prob_check_out = 0.0
-
 
         elif reservation_status_input == "check-out":
 
             prob_canceled = 0.0
-
             prob_no_show = 0.0
-
             prob_check_out = 100.0
-
 
         else:
 
-            prob_canceled = (
-                ml_prob_canceled
-            )
-
-            prob_no_show = (
-                ml_prob_no_show
-            )
-
-            prob_check_out = (
-                ml_prob_check_out
-            )
-
+            prob_canceled = ml_prob_canceled
+            prob_no_show = ml_prob_no_show
+            prob_check_out = ml_prob_check_out
 
         # =====================================================
-        # FINAL STATUS NORMALISATION
+        # STATUS NORMALISATION
         # =====================================================
 
         status_total = (
@@ -2360,7 +2770,6 @@ class ServiceModel:
 
         )
 
-
         if status_total > 0:
 
             prob_canceled = (
@@ -2371,7 +2780,6 @@ class ServiceModel:
 
             )
 
-
             prob_no_show = (
 
                 prob_no_show /
@@ -2379,7 +2787,6 @@ class ServiceModel:
                 100.0
 
             )
-
 
             prob_check_out = (
 
@@ -2389,15 +2796,11 @@ class ServiceModel:
 
             )
 
-
         else:
 
             prob_canceled = 0.0
-
             prob_no_show = 0.0
-
             prob_check_out = 0.0
-
 
         # =====================================================
         # ROUND
@@ -2408,18 +2811,15 @@ class ServiceModel:
             1
         )
 
-
         prob_no_show = round(
             prob_no_show,
             1
         )
 
-
         prob_check_out = round(
             prob_check_out,
             1
         )
-
 
         # =====================================================
         # FINAL STATUS DEBUG
@@ -2431,36 +2831,30 @@ class ServiceModel:
             reservation_status_input
         )
 
-
         print(
             "IS CANCELED INPUT:",
             is_canceled_value
         )
-
 
         print()
         print(
             "STATUS MAPPED PROBABILITIES:"
         )
 
-
         print(
             "Cancellation:",
             prob_canceled
         )
-
 
         print(
             "No-Show:",
             prob_no_show
         )
 
-
         print(
             "Check-Out:",
             prob_check_out
         )
-
 
         # =====================================================
         # COMMENT
@@ -2482,7 +2876,6 @@ class ServiceModel:
 
         )
 
-
         # =====================================================
         # FINAL DEBUG
         # =====================================================
@@ -2492,24 +2885,39 @@ class ServiceModel:
         print("FINAL PREDICTION")
         print("==============================")
 
-
         print(
-            "Predicted Rating:",
-            pred_rating
+            "ML Predicted Rating:",
+            ml_pred_rating
         )
 
+        print(
+            "Final Predicted Rating:",
+            pred_rating
+        )
 
         print(
             "Rating Risk:",
             risk_score
         )
 
-
         print(
             "SLA Risk:",
             sla_risk_score
         )
 
+        print(
+            "Client Email:",
+            input_df[
+                "client_email"
+            ].iloc[0]
+        )
+
+        print(
+            "is_top_bad_client:",
+            input_df[
+                "is_top_bad_client"
+            ].iloc[0]
+        )
 
         print(
             "Client Bad Rate:",
@@ -2518,12 +2926,17 @@ class ServiceModel:
             ].iloc[0]
         )
 
+        print(
+            "Bad Client Score:",
+            input_df[
+                "bad_client_score"
+            ].iloc[0]
+        )
 
         print()
         print(
             "Reservation Status Probabilities:"
         )
-
 
         print(
             "Cancellation:",
@@ -2531,20 +2944,17 @@ class ServiceModel:
             "%"
         )
 
-
         print(
             "No-Show:",
             prob_no_show,
             "%"
         )
 
-
         print(
             "Check-Out:",
             prob_check_out,
             "%"
         )
-
 
         # =====================================================
         # RETURN
@@ -2584,7 +2994,6 @@ class ServiceModel:
     ):
 
         msg = []
-
 
         # =====================================================
         # RATING
@@ -2632,7 +3041,6 @@ class ServiceModel:
                 "Severe dissatisfaction."
             )
 
-
         # =====================================================
         # HISTORICAL COMMENTS
         # =====================================================
@@ -2651,7 +3059,6 @@ class ServiceModel:
 
         )
 
-
         if context_comments:
 
             ai_summary = (
@@ -2666,20 +3073,17 @@ class ServiceModel:
 
             )
 
-
             if ai_summary:
 
                 msg.append(
                     ai_summary
                 )
 
-
             example_block = [
 
                 "Examples of similar feedback:"
 
             ]
-
 
             example_block.extend(
 
@@ -2699,7 +3103,6 @@ class ServiceModel:
 
             )
 
-
             msg.append(
 
                 "\n".join(
@@ -2707,7 +3110,6 @@ class ServiceModel:
                 )
 
             )
-
 
         else:
 
@@ -2717,7 +3119,6 @@ class ServiceModel:
                 "using operational signals."
 
             )
-
 
         return "\n\n".join(
             msg
@@ -2739,7 +3140,6 @@ class ServiceModel:
 
         df = self.comment_df.copy()
 
-
         df["final_rating"] = (
 
             pd.to_numeric(
@@ -2752,18 +3152,15 @@ class ServiceModel:
 
         )
 
-
         df = df[
 
             df["final_rating"] == rating
 
         ]
 
-
         if len(df) == 0:
 
             return []
-
 
         priority_fields = [
 
@@ -2782,20 +3179,16 @@ class ServiceModel:
 
         ]
 
-
         filtered = df
-
 
         for field in priority_fields:
 
             if field not in filtered.columns:
                 continue
 
-
             value = x.get(
                 field
             )
-
 
             if value in [
                 None,
@@ -2804,7 +3197,6 @@ class ServiceModel:
             ]:
 
                 continue
-
 
             tmp = filtered[
 
@@ -2817,11 +3209,9 @@ class ServiceModel:
 
             ]
 
-
             if len(tmp) > 0:
 
                 filtered = tmp
-
 
         comments = (
 
@@ -2831,7 +3221,6 @@ class ServiceModel:
 
         )
 
-
         comments = comments[
 
             comments.apply(
@@ -2839,7 +3228,6 @@ class ServiceModel:
             )
 
         ]
-
 
         comments = (
 
@@ -2849,7 +3237,6 @@ class ServiceModel:
             .tolist()
 
         )
-
 
         if len(comments) == 0:
 
@@ -2861,7 +3248,6 @@ class ServiceModel:
 
             )
 
-
             comments = comments[
 
                 comments.apply(
@@ -2869,7 +3255,6 @@ class ServiceModel:
                 )
 
             ]
-
 
             comments = (
 
@@ -2879,7 +3264,6 @@ class ServiceModel:
                 .tolist()
 
             )
-
 
         return comments[:top_k]
 
@@ -2897,8 +3281,8 @@ class ServiceModel:
     ):
 
         if not comments:
-            return None
 
+            return None
 
         try:
 
@@ -2909,7 +3293,6 @@ class ServiceModel:
                 for x in comments[:30]
 
             ]
-
 
             vectorizer = CountVectorizer(
 
@@ -2923,11 +3306,9 @@ class ServiceModel:
 
             )
 
-
             X = vectorizer.fit_transform(
                 corpus
             )
-
 
             phrases = (
 
@@ -2935,7 +3316,6 @@ class ServiceModel:
                 .get_feature_names_out()
 
             )
-
 
             freq = np.asarray(
 
@@ -2945,7 +3325,6 @@ class ServiceModel:
 
             ).ravel()
 
-
             df_kw = pd.DataFrame({
 
                 "phrase": phrases,
@@ -2954,19 +3333,15 @@ class ServiceModel:
 
             })
 
-
             def is_valid_phrase(p):
 
                 words = p.split()
 
-
                 if len(set(words)) == 1:
                     return False
 
-
                 if len(words) == 1:
                     return False
-
 
                 if any(
 
@@ -2981,9 +3356,7 @@ class ServiceModel:
 
                     return False
 
-
                 return True
-
 
             df_kw = df_kw[
 
@@ -2992,7 +3365,6 @@ class ServiceModel:
                 )
 
             ]
-
 
             df_kw = (
 
@@ -3004,7 +3376,6 @@ class ServiceModel:
 
             )
 
-
             top_phrases = (
 
                 df_kw[
@@ -3015,10 +3386,9 @@ class ServiceModel:
 
             )
 
-
             if not top_phrases:
-                return None
 
+                return None
 
             keyword_text = (
 
@@ -3027,7 +3397,6 @@ class ServiceModel:
                 )
 
             )
-
 
             if rating == 6:
 
@@ -3040,7 +3409,6 @@ class ServiceModel:
 
                 )
 
-
             elif rating == 5:
 
                 return (
@@ -3052,7 +3420,6 @@ class ServiceModel:
 
                 )
 
-
             elif rating == 4:
 
                 return (
@@ -3062,7 +3429,6 @@ class ServiceModel:
                     f"of {keyword_text}."
 
                 )
-
 
             elif rating == 3:
 
@@ -3075,7 +3441,6 @@ class ServiceModel:
 
                 )
 
-
             elif rating == 2:
 
                 return (
@@ -3085,7 +3450,6 @@ class ServiceModel:
                     f"{keyword_text}."
 
                 )
-
 
             elif rating == 1:
 
@@ -3097,7 +3461,6 @@ class ServiceModel:
 
                 )
 
-
             else:
 
                 return (
@@ -3108,11 +3471,9 @@ class ServiceModel:
 
                 )
 
-
         except Exception:
 
             return None
-
 
 
 

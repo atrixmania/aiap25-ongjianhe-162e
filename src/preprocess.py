@@ -1,6 +1,6 @@
-# =========================
+# =========================================================
 # src/preprocess.py
-# =========================
+# =========================================================
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,6 @@ import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import LabelEncoder
 
 from sklearn.experimental import enable_iterative_imputer  # noqa
 from sklearn.impute import IterativeImputer
@@ -18,78 +17,140 @@ from sklearn.impute import IterativeImputer
 import warnings
 from sklearn.exceptions import ConvergenceWarning
 
+
 warnings.filterwarnings(
     "ignore",
     category=ConvergenceWarning
 )
 
 
+# =========================================================
+# DATA PROCESSOR
+# =========================================================
+
 class DataProcessor:
 
-    REVERSE_MAPPINGS = {
-        'hotel': {
-            0: 'city hotel',
-            1: 'airport hotel'
+    # =====================================================
+    # AUTHORITATIVE CATEGORICAL MAPPINGS
+    # =====================================================
+    #
+    # SINGLE SOURCE OF TRUTH
+    #
+    # Do NOT generate these mappings from the dataframe.
+    # Do NOT sort them alphabetically.
+    # Do NOT create another mapping elsewhere.
+    #
+    # These exact values are used for:
+    #
+    #     1. Encoding during preprocessing
+    #     2. Reverse mapping during EDA
+    #     3. Categorical range validation
+    #
+    # =====================================================
+
+    AUTHORITATIVE_MAPPINGS = {
+
+        "hotel": {
+            "airport hotel": 0,
+            "city hotel": 1
         },
 
-        'meal': {
-            0: 'BB (Bed & Breakfast)',
-            1: 'HB (Half Board)',
-            2: 'FB (Full Board)',
-            3: 'SC (Self Catering)',
-            4: 'undefined',
-            5: np.nan
+        "meal": {
+            "BB (Bed & Breakfast)": 0,
+            "FB (Full Board)": 1,
+            "HB (Half Board)": 2,
+            "SC (Self Catering)": 3,
+            "missing": 4,
+            "undefined": 5
         },
 
-        'market_segment': {
-            0: 'offline-ta/to',
-            1: 'online-ta',
-            2: 'groups',
-            3: 'direct',
-            4: 'corporate',
-            5: 'complementary',
-            6: 'aviation',
-            7: 'undefined',
-            8: np.nan
+        "market_segment": {
+            "aviation": 0,
+            "complementary": 1,
+            "corporate": 2,
+            "direct": 3,
+            "groups": 4,
+            "missing": 5,
+            "offline-ta/to": 6,
+            "online-ta": 7,
+            "undefined": 8
         },
 
-        'distribution_channel': {
-            0: 'direct',
-            1: 'corporate',
-            2: 'gds',
-            3: 'undefined',
-            4: 'ta/to',
-            5: np.nan
+        "distribution_channel": {
+            "corporate": 0,
+            "direct": 1,
+            "gds": 2,
+            "missing": 3,
+            "ta/to": 4,
+            "undefined": 5
         },
 
-        'deposit_type': {
-            0: 'non-refund',
-            1: 'no-deposit',
-            2: 'refundable'
+        "deposit_type": {
+            "no-deposit": 0,
+            "non-refund": 1,
+            "refundable": 2
         },
 
-        'customer_type': {
-            0: 'transient',
-            1: 'transient-party',
-            2: 'contract',
-            3: 'group',
-            4: np.nan
+        "customer_type": {
+            "contract": 0,
+            "group": 1,
+            "missing": 2,
+            "transient": 3,
+            "transient-party": 4
         },
 
-        'reservation_status': {
-            0: 'canceled',
-            1: 'no-show',
-            2: 'check-out'
+        "reservation_status": {
+            "canceled": 0,
+            "check-out": 1,
+            "no-show": 2
         }
     }
 
+
+    # =====================================================
+    # AUTOMATIC REVERSE MAPPINGS
+    # =====================================================
+    #
+    # Example:
+    #
+    #     "airport hotel": 0
+    #
+    # becomes:
+    #
+    #     0: "airport hotel"
+    #
+    # This is generated ONLY from
+    # AUTHORITATIVE_MAPPINGS.
+    #
+    # =====================================================
+
+    REVERSE_MAPPINGS = {
+
+        col: {
+            encoded_value: original_value
+            for original_value, encoded_value
+            in mapping.items()
+        }
+
+        for col, mapping
+        in AUTHORITATIVE_MAPPINGS.items()
+    }
+
+
+    # =====================================================
+    # INITIALIZATION
+    # =====================================================
 
     def __init__(self, config=None):
 
         self.config = config or {}
 
+        # -------------------------------------------------
         # Normal categorical encoders
+        # -------------------------------------------------
+
         self.encoders = {}
+
 
         # -------------------------------------------------
         # Rating model
@@ -101,57 +162,87 @@ class DataProcessor:
 
 
         # -------------------------------------------------
-        # Normal IterativeImputer
+        # Iterative imputers
         # -------------------------------------------------
 
-        self.imputer = None
+        self.numeric_imputer = None
 
-        self.imputer_encoders = {}
+        self.categorical_imputer = None
 
-        self.imputer_columns = []
+        self.numeric_imputer_columns = []
+
+        self.categorical_imputer_columns = []
+
+
+        # -------------------------------------------------
+        # Encoded categorical columns
+        # -------------------------------------------------
+
+        self.categorical_cols = [
+
+            "hotel",
+            "meal",
+            "market_segment",
+            "distribution_channel",
+            "deposit_type",
+            "customer_type",
+            "reservation_status"
+
+        ]
+
+
+        # -------------------------------------------------
+        # Raw categorical / text columns
+        # -------------------------------------------------
+
+        self.raw_categorical_cols = [
+
+            "country",
+            "agent",
+            "company",
+            "promo_code",
+            "comment"
+
+        ]
+
+
+        # -------------------------------------------------
+        # ID / text columns
+        # -------------------------------------------------
+
+        self.id_text_cols = [
+
+            "client_email"
+
+        ]
+
+
+        # -------------------------------------------------
+        # Valid encoded categorical ranges
+        # -------------------------------------------------
+
+        self.categorical_ranges = {
+
+            col: (
+                min(mapping.values()),
+                max(mapping.values())
+            )
+
+            for col, mapping
+            in self.AUTHORITATIVE_MAPPINGS.items()
+
+        }
 
 
     # =====================================================
     # PREPARE FINAL RATING
-    # =====================================================
-    #
-    # IMPORTANT:
-    #
-    # This method is SEPARATE from IterativeImputer.
-    #
-    # It performs:
-    #
-    #     rating
-    #        ↓
-    #     comment rating model
-    #        ↓
-    #     predicted missing rating
-    #        ↓
-    #     final_rating
-    #
-    # final_rating becomes the ML TARGET.
-    #
-    # It is NOT a normal feature imputation.
-    #
     # =====================================================
 
     def prepare_final_rating(self, df):
 
         df = df.copy()
 
-
-        # -------------------------------------------------
-        # Clean data first
-        # -------------------------------------------------
-
-        df = self._clean_data(
-            df
-        )
-
-
-        # -------------------------------------------------
-        # Ensure rating is numeric
-        # -------------------------------------------------
+        df = self._clean_data(df)
 
         if "rating" not in df.columns:
 
@@ -160,25 +251,22 @@ class DataProcessor:
                 "to create final_rating."
             )
 
-
         df["rating"] = pd.to_numeric(
             df["rating"],
             errors="coerce"
         )
 
-
-        # -------------------------------------------------
-        # Ensure rating is within 0-6
-        # -------------------------------------------------
-
         invalid_rating = (
+
             df["rating"].notna()
+
             &
+
             ~df["rating"].isin(
                 [0, 1, 2, 3, 4, 5, 6]
             )
-        )
 
+        )
 
         if invalid_rating.any():
 
@@ -217,14 +305,13 @@ class DataProcessor:
             )
 
 
-        # =================================================
-        # FIT RATING MODEL
-        # =================================================
+        # -------------------------------------------------
+        # Training data
+        # -------------------------------------------------
 
         train = df[
             df["rating"].notna()
         ].copy()
-
 
         if len(train) == 0:
 
@@ -234,23 +321,14 @@ class DataProcessor:
             )
 
 
-        X = train[
-            "comment"
-        ]
+        X = train["comment"]
 
-        y = train[
-            "rating"
-        ].astype(int)
+        y = train["rating"].astype(int)
 
-
-        # -------------------------------------------------
-        # Store actual rating classes
-        # -------------------------------------------------
 
         self.rating_classes = sorted(
             y.unique().tolist()
         )
-
 
         print(
             "[INFO] Rating classes:"
@@ -284,6 +362,7 @@ class DataProcessor:
                     class_weight="balanced"
                 )
             )
+
         ])
 
 
@@ -298,17 +377,15 @@ class DataProcessor:
         )
 
 
-        # =================================================
-        # PREDICT MISSING RATINGS
-        # =================================================
+        # -------------------------------------------------
+        # Predict missing ratings
+        # -------------------------------------------------
 
         df["rating_predicted"] = np.nan
-
 
         missing_mask = (
             df["rating"].isna()
         )
-
 
         if missing_mask.sum() > 0:
 
@@ -321,16 +398,15 @@ class DataProcessor:
                 )
             )
 
-
             df.loc[
                 missing_mask,
                 "rating_predicted"
             ] = predicted
 
 
-        # =================================================
-        # CREATE FINAL RATING
-        # =================================================
+        # -------------------------------------------------
+        # Final rating
+        # -------------------------------------------------
 
         df["final_rating"] = (
 
@@ -339,12 +415,9 @@ class DataProcessor:
             .fillna(
                 df["rating_predicted"]
             )
+
         )
 
-
-        # -------------------------------------------------
-        # Ensure final_rating is integer 0-6
-        # -------------------------------------------------
 
         df["final_rating"] = pd.to_numeric(
             df["final_rating"],
@@ -352,7 +425,6 @@ class DataProcessor:
         )
 
 
-        # Safety protection
         df.loc[
             ~df["final_rating"].isin(
                 [0, 1, 2, 3, 4, 5, 6]
@@ -367,10 +439,6 @@ class DataProcessor:
             .astype("Int64")
         )
 
-
-        # =================================================
-        # LOG RESULTS
-        # =================================================
 
         print(
             "[INFO] Rating target preparation completed."
@@ -407,58 +475,17 @@ class DataProcessor:
 
         df = train_df.copy()
 
+        df = self._clean_data(df)
 
-        # -------------------------------------------------
-        # Clean
-        # -------------------------------------------------
+        self._fit_encoders(df)
 
-        df = self._clean_data(
-            df
-        )
+        df = self._encode(df)
 
-
-        # -------------------------------------------------
-        # Fit categorical encoders
-        # -------------------------------------------------
-
-        self._fit_encoders(
-            df
-        )
-
-
-        # -------------------------------------------------
-        # Encode
-        # -------------------------------------------------
-
-        df = self._encode(
-            df
-        )
-
-
-        # -------------------------------------------------
-        # IMPORTANT
-        #
-        # Do NOT fit rating model here.
-        #
-        # final_rating has already been prepared BEFORE
-        # the train/validation/test split.
-        #
-        # -------------------------------------------------
-
-
-        # -------------------------------------------------
-        # Fit normal IterativeImputer
-        # -------------------------------------------------
-
-        self._fit_imputer(
-            df
-        )
-
+        self._fit_imputer(df)
 
         print(
             "DataProcessor fitted"
         )
-
 
         return self
 
@@ -471,53 +498,19 @@ class DataProcessor:
 
         df = df.copy()
 
+        df = self._clean_data(df)
 
-        # -------------------------------------------------
-        # Clean
-        # -------------------------------------------------
-
-        df = self._clean_data(
-            df
-        )
-
-
-        # -------------------------------------------------
-        # Encode
-        # -------------------------------------------------
-
-        df = self._encode(
-            df
-        )
-
-
-        # -------------------------------------------------
-        # Create final_rating when processing RAW data
-        #
-        # This is useful for dashboard/prediction data.
-        #
-        # If final_rating already exists, do not overwrite it.
-        # -------------------------------------------------
+        df = self._encode(df)
 
         if "final_rating" not in df.columns:
 
-            df = self._predict_missing_rating(
-                df
-            )
+            df = self._predict_missing_rating(df)
 
-
-        # -------------------------------------------------
-        # Normal feature imputation
-        # -------------------------------------------------
-
-        df = self._impute(
-            df
-        )
-
+        df = self._impute(df)
 
         print(
             "DataProcessor transform completed"
         )
-
 
         return df
 
@@ -528,9 +521,7 @@ class DataProcessor:
 
     def fit_transform(self, train_df):
 
-        self.fit(
-            train_df
-        )
+        self.fit(train_df)
 
         return self.transform(
             train_df
@@ -545,14 +536,12 @@ class DataProcessor:
 
         df = df.drop_duplicates()
 
-
         df = df.apply(
             lambda col:
             col.str.strip()
             if col.dtype == "object"
             else col
         )
-
 
         df = df.apply(
             lambda col:
@@ -564,16 +553,13 @@ class DataProcessor:
             )
         )
 
-
         numeric_cols = df.select_dtypes(
             include=[np.number]
         ).columns
 
-
         df[numeric_cols] = (
             df[numeric_cols].abs()
         )
-
 
         df = df.rename(
             columns={
@@ -581,10 +567,6 @@ class DataProcessor:
             }
         )
 
-
-        # -------------------------------------------------
-        # Columns that must NEVER be touched
-        # -------------------------------------------------
 
         excluded_columns = {
             "comment",
@@ -597,7 +579,6 @@ class DataProcessor:
 
             if col in excluded_columns:
                 continue
-
 
             if pd.api.types.is_string_dtype(
                 df[col]
@@ -647,10 +628,13 @@ class DataProcessor:
 
                     "unknown": np.nan,
                     "null": np.nan,
+
                     "na": "SC (Self Catering)",
                     "n/a": "SC (Self Catering)",
+
                     "-": np.nan,
                     "": np.nan,
+
                     "bb": "BB (Bed & Breakfast)",
                     "hb": "HB (Half Board)",
                     "fb": "FB (Full Board)",
@@ -817,40 +801,34 @@ class DataProcessor:
 
     def _fit_encoders(self, df):
 
-        cols = [
-            "hotel",
-            "meal",
-            "market_segment",
-            "distribution_channel",
-            "deposit_type",
-            "customer_type",
-            "reservation_status"
-        ]
+        print(
+            "\n========== AUTHORITATIVE CATEGORICAL MAPPINGS =========="
+        )
 
 
-        for col in cols:
+        for col in self.categorical_cols:
 
             if col not in df.columns:
                 continue
 
+            if col not in self.AUTHORITATIVE_MAPPINGS:
+                continue
 
-            values = (
-                df[col]
-                .astype("string")
-                .fillna("missing")
-                .unique()
+
+            self.encoders[col] = (
+                self.AUTHORITATIVE_MAPPINGS[
+                    col
+                ].copy()
             )
 
 
-            self.encoders[col] = {
+            print(
+                f"[INFO] Encoder fitted: {col}"
+            )
 
-                value: index
-
-                for index, value
-                in enumerate(
-                    sorted(values)
-                )
-            }
+            print(
+                f"        {self.encoders[col]}"
+            )
 
 
     # =====================================================
@@ -859,24 +837,31 @@ class DataProcessor:
 
     def _encode(self, df):
 
+        df = df.copy()
+
+
         for col, mapping in self.encoders.items():
 
             if col not in df.columns:
                 continue
 
 
-            df[col] = (
-
+            series = (
                 df[col]
-
                 .astype("string")
+                .str.strip()
+            )
 
-                .fillna("missing")
 
+            series = series.fillna(
+                "missing"
+            )
+
+
+            df[col] = (
+                series
                 .map(mapping)
-
                 .fillna(-1)
-
                 .astype(int)
             )
 
@@ -893,10 +878,6 @@ class DataProcessor:
         df = df.copy()
 
 
-        # -------------------------------------------------
-        # Ensure rating exists
-        # -------------------------------------------------
-
         if "rating" not in df.columns:
 
             df["rating"] = np.nan
@@ -908,10 +889,6 @@ class DataProcessor:
         )
 
 
-        # -------------------------------------------------
-        # If rating model doesn't exist
-        # -------------------------------------------------
-
         if self.rating_model is None:
 
             df["rating_predicted"] = np.nan
@@ -922,10 +899,6 @@ class DataProcessor:
 
             return df
 
-
-        # -------------------------------------------------
-        # Prepare comments
-        # -------------------------------------------------
 
         if "comment" not in df.columns:
 
@@ -939,10 +912,6 @@ class DataProcessor:
         )
 
 
-        # -------------------------------------------------
-        # Find missing ratings
-        # -------------------------------------------------
-
         mask = (
             df["rating"].isna()
         )
@@ -950,10 +919,6 @@ class DataProcessor:
 
         df["rating_predicted"] = np.nan
 
-
-        # -------------------------------------------------
-        # Predict missing ratings
-        # -------------------------------------------------
 
         if mask.sum() > 0:
 
@@ -968,12 +933,9 @@ class DataProcessor:
                         "comment"
                     ]
                 )
+
             )
 
-
-        # -------------------------------------------------
-        # Create final_rating
-        # -------------------------------------------------
 
         df["final_rating"] = (
 
@@ -982,12 +944,9 @@ class DataProcessor:
             .fillna(
                 df["rating_predicted"]
             )
+
         )
 
-
-        # -------------------------------------------------
-        # Force 0-6 integer target
-        # -------------------------------------------------
 
         df["final_rating"] = pd.to_numeric(
             df["final_rating"],
@@ -1014,74 +973,202 @@ class DataProcessor:
 
 
     # =====================================================
-    # STEP 4.4 NORMAL ITERATIVE IMPUTER
+    # STEP 4.4 ITERATIVE IMPUTER
     # =====================================================
 
     def _fit_imputer(self, df):
 
-        # -------------------------------------------------
-        # IMPORTANT
-        #
-        # These are TARGET/RATING columns.
-        #
-        # IterativeImputer must NEVER touch them.
-        # -------------------------------------------------
+        print(
+            "\n========== ITERATIVE IMPUTER FIT =========="
+        )
+
+
+        excluded_target_cols = [
+
+            "rating",
+            "final_rating",
+            "rating_predicted"
+
+        ]
+
 
         df2 = df.drop(
-            columns=[
-                "rating",
-                "final_rating",
-                "rating_predicted"
-            ],
+            columns=excluded_target_cols,
             errors="ignore"
         ).copy()
 
 
+        categorical_cols = [
+
+            col
+
+            for col in self.categorical_cols
+
+            if col in df2.columns
+
+        ]
+
+
+        raw_categorical_cols = [
+
+            col
+
+            for col in self.raw_categorical_cols
+
+            if col in df2.columns
+
+        ]
+
+
+        id_text_cols = [
+
+            col
+
+            for col in self.id_text_cols
+
+            if col in df2.columns
+
+        ]
+
+
+        numeric_cols = [
+
+            col
+
+            for col in df2.columns
+
+            if col not in categorical_cols
+
+            and col not in raw_categorical_cols
+
+            and col not in id_text_cols
+
+            and not col.startswith(
+                "comment_topic_"
+            )
+            and pd.api.types.is_numeric_dtype(
+                df2[col]
+            )
+
+        ]
+
+
         # -------------------------------------------------
-        # Categorical columns
+        # Numeric imputer
         # -------------------------------------------------
 
-        cat_cols = df2.select_dtypes(
-            include="object"
-        ).columns
+        print(
+            "\n========== NUMERIC IMPUTATION =========="
+        )
 
 
-        for col in cat_cols:
+        self.numeric_imputer_columns = (
+            numeric_cols.copy()
+        )
 
-            le = LabelEncoder()
 
+        if numeric_cols:
 
-            df2[col] = (
-                le.fit_transform(
-                    df2[col].astype(str)
-                )
+            self.numeric_imputer = IterativeImputer(
+                random_state=42,
+                max_iter=10
             )
 
 
-            self.imputer_encoders[col] = le
+            self.numeric_imputer.fit(
+                df2[numeric_cols]
+            )
+
+
+            print(
+                f"[INFO] Numeric columns processed: "
+                f"{len(numeric_cols)}"
+            )
+
+        else:
+
+            self.numeric_imputer = None
 
 
         # -------------------------------------------------
-        # Store column order
+        # Categorical imputer
         # -------------------------------------------------
 
-        self.imputer_columns = (
-            df2.columns.tolist()
+        print(
+            "\n========== CATEGORICAL IMPUTATION =========="
         )
 
 
-        # -------------------------------------------------
-        # IterativeImputer
-        # -------------------------------------------------
-
-        self.imputer = IterativeImputer(
-            random_state=42,
-            max_iter=10
+        self.categorical_imputer_columns = (
+            categorical_cols.copy()
         )
 
 
-        self.imputer.fit(
-            df2
+        if categorical_cols:
+
+            self.categorical_imputer = IterativeImputer(
+                random_state=42,
+                max_iter=10
+            )
+
+
+            self.categorical_imputer.fit(
+                df2[categorical_cols]
+            )
+
+
+            print(
+                f"[INFO] Categorical columns processed: "
+                f"{len(categorical_cols)}"
+            )
+
+        else:
+
+            self.categorical_imputer = None
+
+
+        self.raw_categorical_cols = (
+            raw_categorical_cols
+        )
+
+        self.id_text_cols = (
+            id_text_cols
+        )
+
+
+        print(
+            "\n========== IMPUTER COLUMN SUMMARY =========="
+        )
+
+        print(
+            f"[INFO] Numeric columns: "
+            f"{len(self.numeric_imputer_columns)}"
+        )
+
+        print(
+            f"[INFO] Encoded categorical columns: "
+            f"{len(self.categorical_imputer_columns)}"
+        )
+
+        print(
+            f"[INFO] Raw categorical/text columns: "
+            f"{len(self.raw_categorical_cols)}"
+        )
+
+        print(
+            f"[INFO] ID/text columns: "
+            f"{len(self.id_text_cols)}"
+        )
+
+        print(
+            "[INFO] comment_topic_* columns excluded "
+            "from IterativeImputer."
+        )
+
+        print(
+            "[INFO] rating, final_rating and "
+            "rating_predicted excluded from "
+            "IterativeImputer."
         )
 
 
@@ -1091,156 +1178,255 @@ class DataProcessor:
 
     def _impute(self, df):
 
-        if self.imputer is None:
-
-            return df
-
-
-        df2 = df.drop(
-            columns=[
-                "rating",
-                "final_rating",
-                "rating_predicted"
-            ],
-            errors="ignore"
-        ).copy()
+        df = df.copy()
 
 
         # -------------------------------------------------
-        # Make sure all training columns exist
+        # Numeric
         # -------------------------------------------------
 
-        for col in self.imputer_columns:
+        if (
 
-            if col not in df2.columns:
+            self.numeric_imputer is not None
 
-                df2[col] = np.nan
+            and
+
+            self.numeric_imputer_columns
+
+        ):
+
+            numeric_cols = [
+
+                col
+
+                for col
+                in self.numeric_imputer_columns
+
+                if col in df.columns
+
+            ]
 
 
-        # -------------------------------------------------
-        # Remove unexpected columns
-        # -------------------------------------------------
+            if numeric_cols:
 
-        df2 = df2[
-            self.imputer_columns
-        ].copy()
+                df[numeric_cols] = (
 
+                    self.numeric_imputer.transform(
+                        df[numeric_cols]
+                    )
 
-        # =================================================
-        # Encode categorical columns
-        # =================================================
-
-        for col, le in self.imputer_encoders.items():
-
-            mapping = {
-
-                value: index
-
-                for index, value
-                in enumerate(
-                    le.classes_
                 )
-            }
 
 
-            df2[col] = (
+        # -------------------------------------------------
+        # Categorical
+        # -------------------------------------------------
 
-                df2[col]
+        if (
 
-                .astype(str)
+            self.categorical_imputer is not None
 
-                .map(mapping)
+            and
 
-                .fillna(-1)
+            self.categorical_imputer_columns
 
-                .astype(int)
-            )
+        ):
+
+            categorical_cols = [
+
+                col
+
+                for col
+                in self.categorical_imputer_columns
+
+                if col in df.columns
+
+            ]
 
 
-        # =================================================
-        # Run IterativeImputer
-        # =================================================
+            if categorical_cols:
 
-        arr = self.imputer.transform(
-            df2
+                df[categorical_cols] = (
+
+                    self.categorical_imputer.transform(
+                        df[categorical_cols]
+                    )
+
+                )
+
+
+                for col in categorical_cols:
+
+                    if col not in self.categorical_ranges:
+                        continue
+
+
+                    minimum, maximum = (
+                        self.categorical_ranges[col]
+                    )
+
+
+                    df[col] = (
+
+                        df[col]
+                        .round()
+                        .clip(
+                            lower=minimum,
+                            upper=maximum
+                        )
+                        .astype(int)
+
+                    )
+
+
+        # -------------------------------------------------
+        # Raw categorical / text
+        # -------------------------------------------------
+
+        print(
+            "\n========== RAW CATEGORICAL IMPUTATION =========="
         )
 
 
-        result = pd.DataFrame(
+        for col in self.raw_categorical_cols:
 
-            arr,
+            if col not in df.columns:
+                continue
 
-            columns=self.imputer_columns,
 
-            index=df.index
+            missing_before = (
+                df[col].isna().sum()
+            )
+
+
+            if missing_before > 0:
+
+                df[col] = (
+                    df[col]
+                    .fillna("nan")
+                )
+
+
+                print(
+                    f"[INFO] {col}: "
+                    f"{missing_before:,} missing values "
+                    f"filled with 'nan'"
+                )
+
+
+        # -------------------------------------------------
+        # Verify
+        # -------------------------------------------------
+
+        print(
+            "\n========== AFTER IMPUTATION =========="
         )
 
 
-        # =================================================
-        # Restore categorical values
-        # =================================================
+        missing_after = (
+            df.isna().sum()
+        )
 
-        for col, le in self.imputer_encoders.items():
 
-            encoded_values = (
+        missing_display = missing_after[
+            ~missing_after.index.str.startswith(
+                "comment_topic_"
+            )
+        ]
 
-                result[col]
 
-                .round()
+        print(
+            "\nMissing values:"
+        )
 
-                .astype(int)
+        print(
+            missing_display.to_string()
+        )
+
+
+        remaining_missing = (
+            missing_display[
+                missing_display > 0
+            ]
+        )
+
+
+        print(
+            "\n========== REMAINING MISSING VALUES =========="
+        )
+
+
+        if len(remaining_missing) == 0:
+
+            print(
+                "No missing values."
+            )
+
+        else:
+
+            print(
+                remaining_missing.to_string()
             )
 
 
-            encoded_values = (
+        # -------------------------------------------------
+        # Reservation status
+        # -------------------------------------------------
 
-                encoded_values
+        if "reservation_status" in df.columns:
 
-                .clip(
-                    lower=0,
-                    upper=len(le.classes_) - 1
+            print(
+                "\n========== RESERVATION STATUS =========="
+            )
+
+
+            status_counts = (
+                df["reservation_status"]
+                .value_counts()
+                .sort_index()
+            )
+
+
+            print(
+                status_counts
+            )
+
+
+            print(
+                "\nReservation Status Percentages:"
+            )
+
+
+            print(
+
+                df["reservation_status"]
+                .value_counts(
+                    normalize=True
+                )
+                .sort_index()
+                .mul(100)
+                .round(2)
+
+            )
+
+
+            print(
+                "\nReservation Status Labels:"
+            )
+
+
+            status_labels = (
+                df["reservation_status"]
+                .map(
+                    self.REVERSE_MAPPINGS[
+                        "reservation_status"
+                    ]
                 )
             )
 
 
-            result[col] = (
-
-                le.inverse_transform(
-                    encoded_values
-                )
-            )
-
-
-        # =================================================
-        # Restore ORIGINAL rating
-        # =================================================
-
-        if "rating" in df.columns:
-
-            result["rating"] = (
-                df["rating"]
-            )
-
-
-        # =================================================
-        # Restore final_rating
-        # =================================================
-
-        if "final_rating" in df.columns:
-
-            result["final_rating"] = (
-                df["final_rating"]
-            )
-
-
-        # =================================================
-        # Restore rating_predicted
-        # =================================================
-
-        if "rating_predicted" in df.columns:
-
-            result["rating_predicted"] = (
-                df["rating_predicted"]
+            print(
+                status_labels.value_counts()
             )
 
 
@@ -1249,8 +1435,15 @@ class DataProcessor:
             "kept separate from IterativeImputer"
         )
 
+        print(
+            "DataProcessor - final_rating preserved "
+            "for downstream ML processing"
+        )
 
-        return result
+
+        return df
+
+
 
 
 
