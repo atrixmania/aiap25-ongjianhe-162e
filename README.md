@@ -343,9 +343,9 @@ Features show a consistent pattern where complexity, content richness, and moder
 
 |Algorithm|Status|Rationale|
 |-|-|-|
-|Linear SVC|Selected for evaluation|baseline, interpretable|
-|Logistic Regression|Selected for evaluation|Captures Maximum-Margin Hyperplanes|
-|LightGBM|Selected for evaluation|Captures Complex, Non-Linear Patterns which is alternative to Gradient Boosting|
+|Linear SVC|Selected for evaluation|Strong baseline for classification; interpretable through feature weights and effective for high-dimensional data|
+|Logistic Regression|Selected for evaluation|CProvides a simple, interpretable linear classification model and probability-based predictions|
+|LightGBM|Selected for evaluation|Captures complex, non-linear relationships and feature interactions using gradient-boosted decision trees|
 
 
 ## 
