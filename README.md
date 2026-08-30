@@ -152,9 +152,9 @@ graph TD
 
 2 Data Cleaning (remove duplicate, convert to small text, remove space)
 
-3 Feature Engineering
+3 Preprocessing (encoding + imputation)
 
-4 Preprocessing (encoding + imputation)
+4 Feature Engineering
 
 5 Model Training (3 models)
 
