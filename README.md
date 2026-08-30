@@ -343,9 +343,9 @@ Features show a consistent pattern where complexity, content richness, and moder
 
 |Algorithm|Status|Rationale|
 |-|-|-|
-|Logistic Regression|Selected for evaluation|baseline, interpretable|
-|LinearSVC|Selected for evaluation|Captures Maximum-Margin Hyperplanes|
-|LGBMClassifier|Selected for evaluation|Captures Complex, Non-Linear Patterns which is alternative to Gradient Boosting|
+|Linear SVC|Selected for evaluation|baseline, interpretable|
+|Logistic Regression|Selected for evaluation|Captures Maximum-Margin Hyperplanes|
+|LightGBM|Selected for evaluation|Captures Complex, Non-Linear Patterns which is alternative to Gradient Boosting|
 
 
 ## 
@@ -358,17 +358,17 @@ Used **F1-score** and **ROC-AUC** metrics which are suitable for binary classifi
 
 |Model|ROC-AUC Score|F1 Score|final score|
 |-|-|-|-|
-|Logistic Regression|0.992757|0.975870|0.975870|
-|LinearSVC|0.920807|0.987941|0.947660|
-|LGBMClassifier|0.791443|0.966021|0.861274|
+|Linear SVC|0.992757|0.975870|0.975870|
+|Logistic Regression|0.920807|0.987941|0.947660|
+|LightGBM|0.791443|0.966021|0.861274|
 
 
 
-All models achieved nearly identical ROC-AUC scores, but their classification balance varies significantly. We will first eliminate the **LGBMClassifier** because it delivers the weakest F1 Score, failing to capture minority class instances effectively despite its competitive ROC-AUC.
+All models achieved nearly identical ROC-AUC scores, but their classification balance varies significantly. We will first eliminate the **LightGBM** because it delivers the weakest F1 Score, failing to capture minority class instances effectively despite its competitive ROC-AUC.
 
 **Logistic Regression** offers a slightly better F1 Score, but it lacks the native probabilistic outputs that are often crucial for setting flexible classification thresholds in production.
 
-**LinearSVC** emerges as the optimal choice for this deployment. It achieves the highest F1 Score by a clear margin while matching the peak ROC-AUC performance. Furthermore, it is computationally lightweight, exceptionally fast to train, highly interpretable, and carries a much lower risk of overfitting compared to the tree-based LightGBM model.
+**LinearSVC** emerges as the optimal choice for this deployment. It achieves the highest F1 Score by a clear margin while matching the peak ROC-AUC performance. Furthermore, it is computationally lightweight, exceptionally fast to train, highly interpretable, and carries a much lower risk of overfitting compared to the tree-based Logistic Regression model.
 
 If Travelers’ Inn wants the most reliable, cost-efficient, and structurally balanced model, LinearSVC is the best selection here.
 
