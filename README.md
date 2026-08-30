@@ -242,6 +242,30 @@ graph TD
 ```
 
 
+**Data Processor TD**
+```mermaid
+graph TD
+    A[Raw Data] --> B{Train / Test Split}
+
+    B --> X[X_train]
+    B --> Y[X_test / X_actual]
+
+    X --> P["Data Processor<br/>FIT + TRANSFORM"]
+    P --> F["Feature Engineer<br/>FIT + TRANSFORM"]
+    F --> M[Train ML Model]
+
+    M --> S["Saved Train Artifacts<br/>Processor + Features + Model"]
+
+    Y --> PT["Data Processor<br/>TRANSFORM ONLY"]
+    PT --> FT["Feature Engineer<br/>TRANSFORM ONLY"]
+    FT --> E[Evaluate / Predict]
+
+    S -. Reuse .-> PT
+    S -. Reuse .-> FT
+    S -. Model .-> E
+```
+
+
 |TRAINING |PREDICTION|
 |-|-|
 |DataProcessor fit_transform()|DataProcessor transform()|
