@@ -918,7 +918,7 @@ def initialize_training():
 
 def initialize_prediction():
 
-    global prediction_df
+    global service_model
 
     print()
     print("=" * 40)
@@ -926,75 +926,22 @@ def initialize_prediction():
     print("=" * 40)
 
     # =====================================================
-    # IMPORTANT
-    #
-    # DO NOT LOAD prediction DB AGAIN.
-    #
-    # get_dashboard_db() already selected the prediction
-    # database and initialize_training() already loaded it.
-    #
-    # Therefore prediction uses the SAME processed
-    # dashboard dataframe.
+    # 1. CHECK SERVICE MODEL
     # =====================================================
 
-    prediction_dir = CONFIG.get(
-        "prediction_dir"
-    )
-
-    if not prediction_dir:
-
-        print(
-            "[INFO] Prediction directory not configured."
-        )
-
-        return
-
-    prediction_dbs = [
-        os.path.join(
-            prediction_dir,
-            filename
-        )
-        for filename in os.listdir(
-            prediction_dir
-        )
-        if filename.lower().endswith(".db")
-    ]
-
-    if not prediction_dbs:
-
-        print(
-            "[INFO] No prediction databases found."
-        )
-
-        print(
-            "[INFO] Prediction skipped."
-        )
-
-        return
-
-    print(
-        f"[INFO] Prediction DB count: "
-        f"{len(prediction_dbs)}"
-    )
-
-    # =====================================================
-    # USE ALREADY PROCESSED DASHBOARD DATA
-    # =====================================================
-
-    prediction_df = df.copy()
-
-    print(
-        f"[INFO] Prediction data using existing "
-        f"dashboard dataframe: {prediction_df.shape}"
-    )
-
-    # =====================================================
-    # LOAD SAVED SERVICE MODEL
-    # =====================================================
-
-    service_model_path = CONFIG[
+    service_model_path = CONFIG.get(
         "service_model"
-    ]
+    )
+
+    if not service_model_path:
+
+        raise RuntimeError(
+            "Service model path is not configured."
+        )
+
+    # =====================================================
+    # 2. CHECK TRAINED MODEL EXISTS
+    # =====================================================
 
     if not os.path.exists(
         service_model_path
@@ -1005,411 +952,80 @@ def initialize_prediction():
             f"{service_model_path}"
         )
 
-    print(
-        f"[INFO] Using trained service model: "
-        f"{service_model_path}"
-    )
-
-    # -----------------------------------------------------
-    # Make sure the service model is the saved artifact.
-    # -----------------------------------------------------
-
-    saved_service_model = joblib.load(
-        service_model_path
-    )
-
-    print(
-        "[INFO] service_model.pkl loaded."
-    )
-
     # =====================================================
-    # FAST BATCH PREDICTION
+    # 3. REUSE MODEL ALREADY LOADED BY TRAINING
+    #
+    # initialize_training() already loads:
+    #
+    #     service_model.pkl
+    #
+    # Therefore we do NOT need to load it again.
     # =====================================================
 
-    print(
-        "[INFO] Running model prediction..."
-    )
+    if service_model is None:
 
-    # =====================================================
-    # BUILD SERVICE RATING FEATURES
-    # =====================================================
+        print(
+            "[INFO] Loading trained service model..."
+        )
 
-    structured_features = [
-        "comment",
-        "hotel",
-        "meal",
-        "market_segment",
-        "distribution_channel",
-        "deposit_type",
-        "customer_type",
-        "season_group",
-        "country_group",
-        "adr_group",
-        "previous_cancellations_group",
-        "days_in_waiting_list_group",
-        "guest_group",
-        "client_segment",
-        "is_top_bad_client",
-        "client_bad_rate"
-    ]
+        service_model = joblib.load(
+            service_model_path
+        )
 
-    input_df = prediction_df.copy()
-
-    # -----------------------------------------------------
-    # Ensure required columns exist
-    # -----------------------------------------------------
-
-    for col in structured_features:
-
-        if col not in input_df.columns:
-
-            input_df[col] = "unknown"
-
-    X_input = input_df[
-        structured_features
-    ]
-
-    # =====================================================
-    # SERVICE RATING PREDICTION
-    # =====================================================
-
-    best_model = (
-        saved_service_model.best_model
-    )
-
-    pred_ratings = best_model.predict(
-        X_input
-    )
-
-    # =====================================================
-    # PROBABILITY / DECISION SCORES
-    # =====================================================
-
-    clf = best_model.named_steps["clf"]
-
-    if hasattr(
-        clf,
-        "predict_proba"
-    ):
-
-        probs = best_model.predict_proba(
-            X_input
+        print(
+            "[INFO] Service model loaded."
         )
 
     else:
 
-        scores = best_model.decision_function(
-            X_input
-        )
-
-        scores = pd.DataFrame(
-            scores
-        ).to_numpy()
-
-        if scores.ndim == 1:
-
-            import numpy as np
-
-            scores = np.column_stack(
-                [
-                    -scores,
-                    scores
-                ]
-            )
-
-        import numpy as np
-
-        scores = (
-            scores -
-            np.max(
-                scores,
-                axis=1,
-                keepdims=True
-            )
-        )
-
-        exp_scores = np.exp(
-            scores
-        )
-
-        probs = (
-            exp_scores /
-            exp_scores.sum(
-                axis=1,
-                keepdims=True
-            )
+        print(
+            "[INFO] Reusing trained service model."
         )
 
     # =====================================================
-    # RISK CALCULATION
+    # 4. MODEL INFORMATION
     # =====================================================
 
-    import numpy as np
-
-    class_order = list(
-        clf.classes_
-    )
-
-    risk_weights = {
-        0: 1.0,
-        1: 0.90,
-        2: 0.75,
-        3: 0.60,
-        4: 0.40,
-        5: 0.20,
-        6: 0.00,
-    }
-
-    sla_risk = np.zeros(
-        len(pred_ratings),
-        dtype=float
-    )
-
-    for i, cls in enumerate(
-        class_order
+    if hasattr(
+        service_model,
+        "best_model_name"
     ):
 
-        if i >= probs.shape[1]:
-            continue
-
-        sla_risk += (
-            probs[:, i] *
-            risk_weights.get(
-                cls,
-                0
-            )
+        print(
+            "[INFO] Prediction model:",
+            service_model.best_model_name
         )
 
-    sla_risk_score = (
-        sla_risk * 100
-    )
-
     # =====================================================
-    # BASE RISK
-    # =====================================================
-
-    rating_map = {
-        0: 100,
-        1: 90,
-        2: 75,
-        3: 60,
-        4: 40,
-        5: 20,
-        6: 10
-    }
-
-    base_risk = np.array(
-        [
-            rating_map.get(
-                int(rating),
-                50
-            )
-            for rating in pred_ratings
-        ],
-        dtype=float
-    )
-
-    risk_score = (
-        0.6 * base_risk +
-        0.4 * sla_risk_score
-    )
-
-    # =====================================================
-    # RESERVATION STATUS PREDICTION
-    # =====================================================
+    # 5. PREDICTION READY
     #
-    # Uses the reservation-status model already stored
-    # inside ServiceModel.
+    # IMPORTANT:
     #
-    # This is BATCH prediction, so there is no:
+    # No database is loaded here.
     #
-    # for _, row in prediction_df.iterrows()
+    # No prediction is performed here.
     #
+    # No prediction dataframe is created here.
+    #
+    # predict_page.py will provide the input data when
+    # the user clicks the Predict button.
     # =====================================================
+
+    prediction_df = None
 
     print(
-        "[INFO] Running reservation status prediction..."
-    )
-
-    # -----------------------------------------------------
-    # STATUS PREPROCESSING
-    # -----------------------------------------------------
-
-    X_status = (
-        saved_service_model.status_preprocess.transform(
-            X_input
-        )
-    )
-
-    # -----------------------------------------------------
-    # STATUS PROBABILITIES
-    # -----------------------------------------------------
-
-    status_probs = (
-        saved_service_model.status_model.predict_proba(
-            X_status
-        )
-    )
-
-    status_class_order = (
-        saved_service_model.status_model.classes_
-    )
-
-    # -----------------------------------------------------
-    # Create arrays for each reservation status
-    # -----------------------------------------------------
-
-    prob_canceled = np.zeros(
-        len(prediction_df),
-        dtype=float
-    )
-
-    prob_check_out = np.zeros(
-        len(prediction_df),
-        dtype=float
-    )
-
-    prob_no_show = np.zeros(
-        len(prediction_df),
-        dtype=float
-    )
-
-    # -----------------------------------------------------
-    # Match model classes to probability columns
-    # -----------------------------------------------------
-
-    for i, cls in enumerate(
-        status_class_order
-    ):
-
-        probability = (
-            status_probs[:, i] * 100
-        )
-
-        if cls == "canceled":
-
-            prob_canceled = probability
-
-        elif cls == "check-out":
-
-            prob_check_out = probability
-
-        elif cls == "no-show":
-
-            prob_no_show = probability
-
-    # =====================================================
-    # ADD PREDICTIONS
-    # =====================================================
-
-    prediction_df[
-        "predicted_rating"
-    ] = pred_ratings
-
-    prediction_df[
-        "sla_risk_score"
-    ] = np.round(
-        sla_risk_score,
-        1
-    )
-
-    prediction_df[
-        "risk_score"
-    ] = np.round(
-        risk_score,
-        1
-    )
-
-    # =====================================================
-    # ADD RESERVATION STATUS PROBABILITIES
-    # =====================================================
-
-    prediction_df[
-        "prob_canceled"
-    ] = np.round(
-        prob_canceled,
-        1
-    )
-
-    prediction_df[
-        "prob_check_out"
-    ] = np.round(
-        prob_check_out,
-        1
-    )
-
-    prediction_df[
-        "prob_no_show"
-    ] = np.round(
-        prob_no_show,
-        1
-    )
-
-    # -----------------------------------------------------
-    # Determine most likely reservation status
-    # -----------------------------------------------------
-
-    status_probability_matrix = np.column_stack(
-        [
-            prob_canceled,
-            prob_check_out,
-            prob_no_show
-        ]
-    )
-
-    status_names = np.array(
-        [
-            "canceled",
-            "check-out",
-            "no-show"
-        ]
-    )
-
-    prediction_df[
-        "predicted_reservation_status"
-    ] = status_names[
-        np.argmax(
-            status_probability_matrix,
-            axis=1
-        )
-    ]
-
-    print(
-        "[INFO] Reservation status prediction completed."
-    )
-
-    # =====================================================
-    # GENERATED COMMENT
-    # =====================================================
-
-    # -----------------------------------------------------
-    # IMPORTANT
-    #
-    # Do NOT call _generate_comment() 150,000 times.
-    #
-    # Generate comments only when the UI needs them.
-    # -----------------------------------------------------
-
-    prediction_df[
-        "generated_comment"
-    ] = ""
-
-    # =====================================================
-    # FINAL INFORMATION
-    # =====================================================
-
-    print(
-        f"[INFO] Prediction completed: "
-        f"{len(prediction_df)} records"
+        "[INFO] Prediction pipeline ready."
     )
 
     print(
-        "[INFO] Batch prediction completed."
+        "[INFO] Waiting for input from predict_page.py..."
     )
 
     print(
         "========================================"
     )
+
+
 
 
 # =========================================================
